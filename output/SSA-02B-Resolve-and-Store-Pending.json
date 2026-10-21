@@ -1,0 +1,1131 @@
+{
+  "name": "SSA-02B-Resolve-and-Store-Pending",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b4e3695f-52dd-406e-b2cd-f2a806da1327",
+      "name": "Run Prepare Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "5d79ef3f-5af6-4767-8fb3-ab0eea967511",
+      "name": "Called from Telegram Intake",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify(Object.fromEntries(Object.entries(Object.assign({}, $json.event_type ? {} : { event_type: 'REPAYMENT', customer_name: 'Sunita Deshmukh', amount: 200 }, $json, { currency: $json.currency ?? 'INR', shop_id: $json.shop_id ?? ($env.SHOP_ID || 'SHOP-001'), sender_id: String($json.sender_id ?? ($env.OWNER_TELEGRAM_ID || '7973198714')) })).filter(([k, v]) => v !== undefined && v !== null))) }}",
+        "options": {}
+      },
+      "id": "8a41ea8a-ed7c-4511-ba8b-48694672f2e5",
+      "name": "Test Input (edit defaults)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "v1",
+              "name": "errors",
+              "type": "array",
+              "value": "={{ (() => { const j = $json; const e = []; const need = { SALE: ['amount'], CREDIT_SALE: ['customer_name','amount'], REPAYMENT: ['customer_name','amount'], STOCK_IN: ['product_name','quantity','unit'], STOCK_OUT: ['product_name','quantity','unit'], ACCEPTED_ORDER: ['customer_name','product_name','quantity','unit'] }; const allowed = ['event_type','customer_name','customer_id','product_name','product_id','amount','quantity','unit','currency','shop_id','source_update_id','source_message_id','chat_id','sender_id','source_text']; Object.keys(j).forEach(k => { if (!allowed.includes(k)) e.push('Unknown field: ' + k); }); if (!j.shop_id) e.push('Missing required field: shop_id'); const req = need[j.event_type]; if (!req) { e.push('Unsupported event_type: ' + j.event_type); return e; } req.forEach(f => { const v = f === 'customer_name' ? (j.customer_name || j.customer_id) : f === 'product_name' ? (j.product_name || j.product_id) : j[f]; if (v === null || v === undefined || v === '') e.push('Missing required field: ' + f); }); ['amount','quantity'].forEach(f => { const v = j[f]; if (v !== null && v !== undefined && v !== '') { if (typeof v !== 'number' || !isFinite(v)) e.push(f + ' must be a number'); else if (v <= 0) e.push(f + ' must be positive'); } }); if (j.unit && !['kg','g','litre','ml','packet','piece','dozen'].includes(j.unit)) e.push('Invalid unit: ' + j.unit); if (j.currency && j.currency !== 'INR') e.push('Currency must be INR'); return e; })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "8151c198-1289-4702-ac19-bf0b451de1ba",
+      "name": "Validate Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        496,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fv1",
+              "leftValue": "={{ $json.errors.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "05fe3c51-e9ee-4827-bb38-02ad7823bbb6",
+      "name": "Fields Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "g8h9kz7RIHrPr1Ul",
+          "cachedResultName": "ssa_customers"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shop_id",
+              "keyValue": "={{ $('Validate Fields').first().json.shop_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "d1bed835-1dc5-4bdf-a88d-649539bb0e9b",
+      "name": "Lookup Customers",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        944,
+        144
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "MUfWELODmJP52r30",
+          "cachedResultName": "ssa_products"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shop_id",
+              "keyValue": "={{ $('Validate Fields').first().json.shop_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "2811f2e7-c281-4dfd-a3c8-e4ea72b34790",
+      "name": "Lookup Products",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1168,
+        144
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "27E7z49RMAy0liUe",
+          "cachedResultName": "ssa_ledger_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shop_id",
+              "keyValue": "={{ $('Validate Fields').first().json.shop_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "f4a34be8-07ff-4316-9a1e-c584f4eaeca9",
+      "name": "Lookup Ledger State",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1392,
+        144
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "rr1",
+              "name": "resolution",
+              "type": "object",
+              "value": "={{ (() => { const j = $('Validate Fields').first().json; const norm = s => String(s ?? '').trim().toLowerCase().split(' ').filter(x => x).join(' '); const rows = (n, idf) => $(n).all().map(i => i.json).filter(r => r[idf] && r.shop_id === j.shop_id); const customers = rows('Lookup Customers', 'customer_id'); const products = rows('Lookup Products', 'product_id'); const find = (list, idf, id, name) => { if (id) return list.filter(r => r[idf] === id); const q = norm(name); const exact = list.filter(r => norm(r.name) === q); return exact.length ? exact : list.filter(r => norm(r.name).includes(q)); }; const errors = []; const clarify = []; const out = {}; const needC = ['CREDIT_SALE','REPAYMENT','ACCEPTED_ORDER'].includes(j.event_type); const needP = ['STOCK_IN','STOCK_OUT','ACCEPTED_ORDER'].includes(j.event_type); if (needC) { const m = find(customers, 'customer_id', j.customer_id, j.customer_name); if (m.length === 1) { out.customer_id = m[0].customer_id; out.customer_name = m[0].name; out.current_debt = Number(m[0].current_debt ?? 0); out.credit_limit = Number(m[0].credit_limit ?? 5000); if (j.event_type === 'CREDIT_SALE') { if ((out.current_debt + j.amount) > out.credit_limit) { errors.push('Credit limit exceeded for ' + m[0].name + '. Current debt: Rs ' + out.current_debt + ', Limit: Rs ' + out.credit_limit + ', Requested: Rs ' + j.amount); } out.projected_debt = out.current_debt + j.amount; } else if (j.event_type === 'REPAYMENT') { out.projected_debt = Math.max(0, out.current_debt - j.amount); } } else if (m.length === 0) { errors.push('Unknown customer: ' + (j.customer_id || j.customer_name)); } else { clarify.push('Which customer did you mean? ' + m.map(r => r.customer_id + ' ' + r.name).join(' | ')); } } if (needP) { const m = find(products, 'product_id', j.product_id, j.product_name); if (m.length === 1) { out.product_id = m[0].product_id; out.product_name = m[0].name; out.product_unit = m[0].unit; out.current_stock = Number(m[0].current_stock ?? 0); out.unit_price = Number(m[0].unit_price ?? 0); if (j.unit && j.unit !== m[0].unit) { errors.push('Unit mismatch for ' + m[0].name + ': expected ' + m[0].unit + ', got ' + j.unit); } if (['STOCK_OUT', 'ACCEPTED_ORDER'].includes(j.event_type)) { if (j.quantity > out.current_stock) { errors.push('Insufficient stock for ' + m[0].name + '. Available: ' + out.current_stock + ' ' + m[0].unit + ', Requested: ' + j.quantity + ' ' + j.unit); } out.projected_stock = out.current_stock - j.quantity; } else if (j.event_type === 'STOCK_IN') { out.projected_stock = out.current_stock + j.quantity; } } else if (m.length === 0) { errors.push('Unknown product: ' + (j.product_id || j.product_name)); } else { clarify.push('Which product did you mean? ' + m.map(r => r.product_id + ' ' + r.name).join(' | ')); } } const ls = $('Lookup Ledger State').all().map(i => i.json).filter(r => r.shop_id === j.shop_id && r.journal_id); if (ls.length !== 1) { errors.push('Ledger state missing or not unique for shop ' + j.shop_id); } else { out.journal_id = ls[0].journal_id; out.ledger_revision = Number(ls[0].revision ?? 1); } return Object.assign({ outcome: errors.length ? 'REJECTED' : (clarify.length ? 'CLARIFICATION_NEEDED' : 'OK'), errors: errors, clarify: clarify }, out); })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4e4e910a-60fc-4a01-90b5-ca1e26f323c9",
+      "name": "Resolve References",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1616,
+        144
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ro1",
+              "leftValue": "={{ $json.resolution.outcome }}",
+              "rightValue": "OK",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "283bb09a-e356-43b8-93cb-55f8bfa73587",
+      "name": "References Verified?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1840,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "action": "generate"
+      },
+      "id": "0e4a7e3d-d164-4706-9d08-335632b30517",
+      "name": "Generate Event ID",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        2064,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "action": "generate",
+        "encodingType": "hex",
+        "stringLength": 16
+      },
+      "id": "b3e94a1d-7201-49fc-9e33-722a9eb786fa",
+      "name": "Generate Approval Token",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        2288,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1",
+              "name": "event_id",
+              "type": "string",
+              "value": "={{ 'EVT-' + $('Generate Event ID').first().json.data }}"
+            },
+            {
+              "id": "b2",
+              "name": "proposal_id",
+              "type": "string",
+              "value": "={{ 'PROP-' + $('Generate Event ID').first().json.data }}"
+            },
+            {
+              "id": "b3",
+              "name": "shop_id",
+              "type": "string",
+              "value": "={{ $('Validate Fields').first().json.shop_id }}"
+            },
+            {
+              "id": "b4",
+              "name": "journal_id",
+              "type": "string",
+              "value": "={{ $('Resolve References').first().json.resolution.journal_id }}"
+            },
+            {
+              "id": "b5",
+              "name": "event_type",
+              "type": "string",
+              "value": "={{ $('Validate Fields').first().json.event_type }}"
+            },
+            {
+              "id": "b6",
+              "name": "ledger_revision",
+              "type": "number",
+              "value": "={{ $('Resolve References').first().json.resolution.ledger_revision }}"
+            },
+            {
+              "id": "b7",
+              "name": "created_iso",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "id": "b8",
+              "name": "expires_at",
+              "type": "string",
+              "value": "={{ $now.plus({ seconds: 90 }).toISO() }}"
+            },
+            {
+              "id": "b9",
+              "name": "expires_epoch",
+              "type": "number",
+              "value": "={{ $now.toMillis() + 90000 }}"
+            },
+            {
+              "id": "b10",
+              "name": "status",
+              "type": "string",
+              "value": "APPROVAL_ISSUED"
+            },
+            {
+              "id": "b10r",
+              "name": "status_reason",
+              "type": "string",
+              "value": "Approval token generated; awaiting COMMIT"
+            },
+            {
+              "id": "b11",
+              "name": "source_update_id",
+              "type": "string",
+              "value": "={{ String($('Validate Fields').first().json.source_update_id ?? '') }}"
+            },
+            {
+              "id": "b12",
+              "name": "source_message_id",
+              "type": "string",
+              "value": "={{ String($('Validate Fields').first().json.source_message_id ?? '') }}"
+            },
+            {
+              "id": "b15",
+              "name": "sender_id",
+              "type": "string",
+              "value": "={{ String($('Validate Fields').first().json.sender_id ?? '') }}"
+            },
+            {
+              "id": "b16",
+              "name": "source_text",
+              "type": "string",
+              "value": "={{ String($('Validate Fields').first().json.source_text ?? '') }}"
+            },
+            {
+              "id": "b13",
+              "name": "chat_id",
+              "type": "string",
+              "value": "={{ String($('Validate Fields').first().json.chat_id ?? '') }}"
+            },
+            {
+              "id": "b14",
+              "name": "approval_code",
+              "type": "string",
+              "value": "={{ $('Generate Approval Token').first().json.data }}"
+            },
+            {
+              "id": "b17",
+              "name": "payload_canonical",
+              "type": "string",
+              "value": "={{ (() => { const j = $('Validate Fields').first().json; const r = $('Resolve References').first().json.resolution; const p = { event_type: j.event_type, shop_id: j.shop_id, customer_id: r.customer_id, product_id: r.product_id, amount: j.amount, quantity: j.quantity, unit: j.unit, currency: j.currency ?? 'INR' }; const o = {}; Object.keys(p).sort().forEach(k => { if (p[k] !== undefined && p[k] !== null && p[k] !== '') o[k] = p[k]; }); return JSON.stringify(o); })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4ce19edb-6208-4712-8f77-d663e56567df",
+      "name": "Build Proposal Record",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2512,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.payload_canonical }}",
+        "dataPropertyName": "payload_hash"
+      },
+      "id": "9f10bd66-16c6-41ac-bc03-f0360e2ab139",
+      "name": "Hash Payload",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        2736,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.approval_code }}",
+        "dataPropertyName": "token_hash"
+      },
+      "id": "0387b99d-1144-48f8-a159-87a5f33cf23b",
+      "name": "Hash Token",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        2960,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bs0",
+              "name": "binding_string",
+              "type": "string",
+              "value": "={{ [$json.event_id, $json.shop_id, $json.journal_id, $json.event_type, $json.ledger_revision, $json.expires_epoch, $json.sender_id, $json.payload_canonical].join('|') }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "8bb38410-681b-4da6-92cb-fc581333cb5d",
+      "name": "Build Binding String",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3184,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.binding_string }}",
+        "dataPropertyName": "binding_hash"
+      },
+      "id": "97ac888e-6c0b-4eef-b1ae-356c12140bb0",
+      "name": "Hash Binding",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        3408,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "proposal_id": "={{ $json.proposal_id }}",
+            "event_id": "={{ $json.event_id }}",
+            "shop_id": "={{ $json.shop_id }}",
+            "journal_id": "={{ $json.journal_id }}",
+            "event_type": "={{ $json.event_type }}",
+            "payload_canonical": "={{ $json.payload_canonical }}",
+            "payload_hash": "={{ $json.payload_hash }}",
+            "token_hash": "={{ $json.token_hash }}",
+            "binding_hash": "={{ $json.binding_hash }}",
+            "ledger_revision": "={{ $json.ledger_revision }}",
+            "expires_at": "={{ $json.expires_at }}",
+            "expires_epoch": "={{ $json.expires_epoch }}",
+            "status": "={{ $json.status }}",
+            "status_reason": "={{ $json.status_reason }}",
+            "source_update_id": "={{ $json.source_update_id }}",
+            "source_message_id": "={{ $json.source_message_id }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "created_iso": "={{ $json.created_iso }}",
+            "sender_id": "={{ $json.sender_id }}",
+            "source_text": "={{ $json.source_text }}"
+          },
+          "schema": [
+            {
+              "id": "proposal_id",
+              "displayName": "proposal_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "shop_id",
+              "displayName": "shop_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "journal_id",
+              "displayName": "journal_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "event_type",
+              "displayName": "event_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload_canonical",
+              "displayName": "payload_canonical",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload_hash",
+              "displayName": "payload_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "token_hash",
+              "displayName": "token_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "binding_hash",
+              "displayName": "binding_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ledger_revision",
+              "displayName": "ledger_revision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "expires_at",
+              "displayName": "expires_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "expires_epoch",
+              "displayName": "expires_epoch",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_update_id",
+              "displayName": "source_update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_message_id",
+              "displayName": "source_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_iso",
+              "displayName": "created_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sender_id",
+              "displayName": "sender_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_text",
+              "displayName": "source_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5091f87a-faf6-4c4b-be26-cf1461d3d097",
+      "name": "Store Pending Proposal",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3632,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "result",
+              "type": "string",
+              "value": "PROPOSAL_PREVIEW_WITH_TOKEN"
+            },
+            {
+              "id": "c2",
+              "name": "pending_proposal_created",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "id": "c3",
+              "name": "event_id",
+              "type": "string",
+              "value": "={{ $('Hash Binding').first().json.event_id }}"
+            },
+            {
+              "id": "c4",
+              "name": "expires_at",
+              "type": "string",
+              "value": "={{ $('Hash Binding').first().json.expires_at }}"
+            },
+            {
+              "id": "c5",
+              "name": "approval_code",
+              "type": "string",
+              "value": "={{ $('Hash Binding').first().json.approval_code }}"
+            },
+            {
+              "id": "c6",
+              "name": "message",
+              "type": "string",
+              "value": "={{ (() => { const h = $('Hash Binding').first().json; const v = $('Validate Fields').first().json; const r = $('Resolve References').first().json.resolution; const lines = [ '📝 <b>TRANSACTION PREVIEW (NOT COMMITTED)</b>', '───────────────────────────', '<b>Type:</b> ' + h.event_type ]; if (r.customer_name) { lines.push('<b>Customer:</b> ' + r.customer_name + ' (<code>' + r.customer_id + '</code>)'); } if (r.product_name) { lines.push('<b>Product:</b> ' + r.product_name + ' (<code>' + r.product_id + '</code>)'); } if (v.amount) { lines.push('<b>Amount:</b> Rs ' + v.amount); } if (v.quantity) { lines.push('<b>Quantity:</b> ' + v.quantity + ' ' + (v.unit || r.product_unit)); } if (h.event_type === 'CREDIT_SALE') { lines.push('<b>Current Debt:</b> Rs ' + r.current_debt + ' ➔ <b>Projected:</b> Rs ' + r.projected_debt + ' (Limit: Rs ' + r.credit_limit + ')'); } else if (h.event_type === 'REPAYMENT') { lines.push('<b>Current Debt:</b> Rs ' + r.current_debt + ' ➔ <b>Projected:</b> Rs ' + r.projected_debt); } else if (['STOCK_IN', 'STOCK_OUT', 'ACCEPTED_ORDER'].includes(h.event_type)) { lines.push('<b>Current Stock:</b> ' + r.current_stock + ' ' + r.product_unit + ' ➔ <b>Projected:</b> ' + r.projected_stock + ' ' + r.product_unit); } lines.push('<b>Ledger Revision:</b> ' + h.ledger_revision); lines.push('<b>Event ID:</b> <code>' + h.event_id + '</code>'); lines.push('───────────────────────────'); lines.push('👉 <b>To approve and commit to ledger, reply:</b>'); lines.push('<code>COMMIT ' + h.approval_code + '</code>'); lines.push(''); lines.push('⏳ <i>Valid for 90 seconds. To cancel, reply:</i>'); lines.push('<code>CANCEL ' + h.approval_code + '</code>'); return lines.join('\\n'); })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4b083d14-bf1b-434c-8f1a-528dcc21ea62",
+      "name": "Confirm Stored (Preview)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3856,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bf1",
+              "name": "result",
+              "type": "string",
+              "value": "={{ $json.resolution ? $json.resolution.outcome : 'REJECTED_INVALID_FIELDS' }}"
+            },
+            {
+              "id": "bf2",
+              "name": "pending_proposal_created",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "bf3",
+              "name": "message",
+              "type": "string",
+              "value": "={{ (() => { const r = $json.resolution; const clar = r && r.outcome === 'CLARIFICATION_NEEDED'; const lines = r ? r.clarify.concat(r.errors) : $json.errors; if (clar) { return '❓ <b>CLARIFICATION NEEDED - NOTHING SAVED</b>\\n' + lines.map(x => '• ' + x).join('\\n'); } return '❌ <b>PROPOSAL REJECTED - NOTHING SAVED</b>\\n' + lines.map(x => '• ' + x).join('\\n'); })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c9ef5e02-8f57-4cfc-a4d5-157c423ac444",
+      "name": "Build Refusal or Clarification",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1616,
+        416
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "451968b2-c61d-47a6-b280-553456e6d31f",
+      "name": "Run Expiry Check",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ci1",
+              "name": "event_id",
+              "type": "string",
+              "value": "={{ $json.event_id ?? 'EVT-3d7834ad-afb8-498d-b967-c861369464d3' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "17cfce8c-3a7b-4873-a13e-be3ab46ebc5c",
+      "name": "Check Input (paste event_id)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Check Input (paste event_id)').first().json.event_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "813d61b1-29be-4dd1-bd0e-0c936920ccc7",
+      "name": "Get Pending Proposal",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        496,
+        560
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ee1",
+              "name": "check",
+              "type": "object",
+              "value": "={{ (() => { const rows = $input.all().map(i => i.json).filter(r => r.event_id); if (rows.length === 0) return { state: 'NOT_FOUND', usable: false }; if (rows.length > 1) return { state: 'DUPLICATE_EVENT_ID', usable: false }; const r = rows[0]; const now = $now.toMillis(); if (r.status !== 'APPROVAL_ISSUED' && r.status !== 'PENDING') return { state: 'NOT_PENDING', status: r.status, usable: false }; if (now > r.expires_epoch) return { state: 'EXPIRED', seconds_overdue: Math.round((now - r.expires_epoch) / 1000), usable: false }; return { state: 'VALID_APPROVAL', seconds_left: Math.round((r.expires_epoch - now) / 1000), usable: true, token_hash_present: !!r.token_hash }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7540a2fc-a992-4feb-8931-7a0f2ab73619",
+      "name": "Evaluate Expiry",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        560
+      ],
+      "executeOnce": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run Prepare Test": {
+      "main": [
+        [
+          {
+            "node": "Test Input (edit defaults)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called from Telegram Intake": {
+      "main": [
+        [
+          {
+            "node": "Test Input (edit defaults)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Input (edit defaults)": {
+      "main": [
+        [
+          {
+            "node": "Validate Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Fields": {
+      "main": [
+        [
+          {
+            "node": "Fields Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fields Valid?": {
+      "main": [
+        [
+          {
+            "node": "Lookup Customers",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Refusal or Clarification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Customers": {
+      "main": [
+        [
+          {
+            "node": "Lookup Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Products": {
+      "main": [
+        [
+          {
+            "node": "Lookup Ledger State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Ledger State": {
+      "main": [
+        [
+          {
+            "node": "Resolve References",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve References": {
+      "main": [
+        [
+          {
+            "node": "References Verified?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "References Verified?": {
+      "main": [
+        [
+          {
+            "node": "Generate Event ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Refusal or Clarification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Event ID": {
+      "main": [
+        [
+          {
+            "node": "Generate Approval Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Approval Token": {
+      "main": [
+        [
+          {
+            "node": "Build Proposal Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Proposal Record": {
+      "main": [
+        [
+          {
+            "node": "Hash Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Payload": {
+      "main": [
+        [
+          {
+            "node": "Hash Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Token": {
+      "main": [
+        [
+          {
+            "node": "Build Binding String",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Binding String": {
+      "main": [
+        [
+          {
+            "node": "Hash Binding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Binding": {
+      "main": [
+        [
+          {
+            "node": "Store Pending Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Pending Proposal": {
+      "main": [
+        [
+          {
+            "node": "Confirm Stored (Preview)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Expiry Check": {
+      "main": [
+        [
+          {
+            "node": "Check Input (paste event_id)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Input (paste event_id)": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Proposal": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Expiry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "ff8fea95-ec62-471a-87a4-d526b040d325",
+  "meta": {
+    "instanceId": "6ace28077ab79676f89792b4efff45f954dc47e55a52ae057ab4031d0a81e358"
+  },
+  "id": "EX8ok0beOCJqdpaN",
+  "tags": []
+}

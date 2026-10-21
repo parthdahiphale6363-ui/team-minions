@@ -1,0 +1,548 @@
+{
+  "name": "SSA-05-Cancel-or-Edit-Invalidate",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "7471b19c-40d5-4201-b42b-c6e155f8a87f",
+      "name": "Run Cancel Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "che0",
+              "name": "cmd",
+              "type": "object",
+              "value": "={{ (() => { const t = String($json.text ?? ''); const m = /^(CANCEL|EDIT) ([0-9a-f]{16})( .+)?$/.exec(t); const verb = m ? m[1] : ''; const fmt = !!m && (verb === 'EDIT' ? !!m[3] : !m[3]); const owner = String($json.sender_id ?? '') === '7973198714'; return { format_ok: fmt, owner_ok: owner, verb: verb, token: fmt ? m[2] : '', edit_text: fmt && verb === 'EDIT' ? m[3].trim() : '', reasons: [owner ? '' : 'NOT_OWNER', fmt ? '' : 'BAD_COMMAND_FORMAT'].filter(x => x) }; })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "4a6cdf2e-7643-4dc5-984c-7b0919c8e7ce",
+      "name": "Check Cancel or Edit Command",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "ef15e0ee-ba4f-4e7d-bd6f-29355c9cb649",
+      "name": "Called from Intake",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cmd1",
+              "leftValue": "={{ $json.cmd.format_ok && $json.cmd.owner_ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6071f88e-0cce-4359-bd8a-0579adc2907c",
+      "name": "Command and Owner OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.cmd.token }}",
+        "dataPropertyName": "token_hash"
+      },
+      "id": "5b9329ac-ec75-4fc3-971d-d325512fc957",
+      "name": "Hash Presented Token",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        800,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "token_hash",
+              "keyValue": "={{ $json.token_hash }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "cd70fa0e-ddda-4fe2-a7e8-f8abe2ca9f4b",
+      "name": "Lookup Proposal by Token",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        176
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "val0",
+              "name": "verdict",
+              "type": "object",
+              "value": "={{ (() => { const rows = $('Lookup Proposal by Token').all().map(i => i.json).filter(r => r.event_id); const who = $('Check Cancel or Edit Command').first().json; if (rows.length === 0) return { ok: false, reasons: ['TOKEN_NOT_FOUND_OR_ALREADY_USED'] }; if (rows.length > 1) return { ok: false, reasons: ['DUPLICATE_TOKEN_HASH'] }; const r = rows[0]; const reasons = []; if (r.status !== 'APPROVAL_ISSUED') reasons.push('NOT_INVALIDATABLE:' + r.status); if (String(r.sender_id) !== String(who.sender_id)) reasons.push('SENDER_MISMATCH'); return { ok: reasons.length === 0, reasons: reasons, event_id: r.event_id, new_status: who.verb === 'EDIT' ? 'SUPERSEDED_BY_EDIT' : 'CANCELLED' }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d6dda9a0-31d8-4d33-b745-e0433df9d8f7",
+      "name": "Validate Invalidation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1248,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "val1",
+              "leftValue": "={{ $json.verdict.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5b557612-b43f-4d21-96e6-ca51ab352fb5",
+      "name": "Can Invalidate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1472,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $json.verdict.event_id }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "=APPROVAL_ISSUED"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $json.verdict.new_status }}",
+            "token_hash": "",
+            "binding_hash": "",
+            "status_reason": "={{ $(\"Check Cancel or Edit Command\").first().json.verb + \" by owner\" }}",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "token_hash",
+              "displayName": "token_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "binding_hash",
+              "displayName": "binding_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8ca0d3ee-82e9-4a48-b98e-e889a518d533",
+      "name": "Invalidate Approval",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1328,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Validate Invalidation').first().json.verdict.event_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "9fe9ed1a-2aed-4375-a416-6e91b6a56318",
+      "name": "Re-read Proposal",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1552,
+        128
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "don0",
+              "name": "result",
+              "type": "string",
+              "value": "={{ $('Validate Invalidation').first().json.verdict.new_status }}"
+            },
+            {
+              "id": "don1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "don2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ (() => { const r = $input.all().map(i => i.json).filter(x => x.event_id)[0]; const ok = r && r.status === $('Validate Invalidation').first().json.verdict.new_status && !r.token_hash; const verb = $('Check Cancel or Edit Command').first().json.verb; return ok ? (verb === 'EDIT' ? 'Approval invalidated; the proposal is superseded. Re-preparing an edited proposal is not built yet, so send the corrected command again. Nothing was committed.' : 'Proposal cancelled and its approval token invalidated. Nothing was committed.') : 'Invalidation could not be confirmed on re-read. Treat the token as possibly still active until it expires. Nothing was committed.'; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "af34d199-f405-4944-9a08-74fb1ea1bc4c",
+      "name": "Build Invalidated Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1776,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "rej0",
+              "name": "result",
+              "type": "string",
+              "value": "INVALIDATION_REJECTED"
+            },
+            {
+              "id": "rej1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "rej2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'Not changed: ' + (($json.verdict ?? $json.cmd).reasons ?? ['UNKNOWN']).join(', ') + '.' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0c1fbf59-0790-42ca-b04f-9a05582654b9",
+      "name": "Build Rejection",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        224
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run Cancel Test": {
+      "main": [
+        [
+          {
+            "node": "Check Cancel or Edit Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Cancel or Edit Command": {
+      "main": [
+        [
+          {
+            "node": "Command and Owner OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called from Intake": {
+      "main": [
+        [
+          {
+            "node": "Check Cancel or Edit Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Command and Owner OK?": {
+      "main": [
+        [
+          {
+            "node": "Hash Presented Token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Presented Token": {
+      "main": [
+        [
+          {
+            "node": "Lookup Proposal by Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Proposal by Token": {
+      "main": [
+        [
+          {
+            "node": "Validate Invalidation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Invalidation": {
+      "main": [
+        [
+          {
+            "node": "Can Invalidate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Can Invalidate?": {
+      "main": [
+        [
+          {
+            "node": "Invalidate Approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invalidate Approval": {
+      "main": [
+        [
+          {
+            "node": "Re-read Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-read Proposal": {
+      "main": [
+        [
+          {
+            "node": "Build Invalidated Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "1b979397-9c3a-4707-9a13-8d2f2b9ea936",
+  "meta": {
+    "instanceId": "6ace28077ab79676f89792b4efff45f954dc47e55a52ae057ab4031d0a81e358"
+  },
+  "nodeGroups": [
+    {
+      "id": "a7d152d9-4914-4e5a-961a-3812a798afd1",
+      "name": "Check command and owner",
+      "nodeIds": [
+        "4a6cdf2e-7643-4dc5-984c-7b0919c8e7ce",
+        "6071f88e-0cce-4359-bd8a-0579adc2907c"
+      ],
+      "description": "Accepts only CANCEL token, or EDIT token plus new text, from the registered owner"
+    },
+    {
+      "id": "c62f2e47-a027-470b-9256-94f19bd66bf9",
+      "name": "Find and validate approval",
+      "nodeIds": [
+        "5b9329ac-ec75-4fc3-971d-d325512fc957",
+        "cd70fa0e-ddda-4fe2-a7e8-f8abe2ca9f4b",
+        "d6dda9a0-31d8-4d33-b745-e0433df9d8f7",
+        "5b557612-b43f-4d21-96e6-ca51ab352fb5"
+      ],
+      "description": "Finds the proposal by token hash and confirms it still has an active approval for this sender"
+    },
+    {
+      "id": "0949aa9f-6d2e-458b-9fad-b9314e5cc1c1",
+      "name": "Invalidate approval",
+      "nodeIds": [
+        "8ca0d3ee-82e9-4a48-b98e-e889a518d533",
+        "9fe9ed1a-2aed-4375-a416-6e91b6a56318",
+        "af34d199-f405-4944-9a08-74fb1ea1bc4c"
+      ],
+      "description": "Consumes the token and marks the proposal CANCELLED or SUPERSEDED, then re-reads to confirm; no ledger access"
+    }
+  ],
+  "id": "J0hLy0SesdNmxVpb",
+  "tags": []
+}

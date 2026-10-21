@@ -1,0 +1,818 @@
+{
+  "name": "SSA-04-Commit-Validate-DryRun",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "57f5b7a1-f6be-41a8-8fe5-dde8956bc76d",
+      "name": "Run Commit Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "che0",
+              "name": "cmd",
+              "type": "object",
+              "value": "={{ (() => { const t = String($json.text ?? ''); const fmt = /^COMMIT [0-9a-f]{16}$/.test(t); const owner = String($json.sender_id ?? '') === '7973198714'; return { format_ok: fmt, owner_ok: owner, token: fmt ? t.slice(7) : '', reasons: [owner ? '' : 'NOT_OWNER', fmt ? '' : 'BAD_COMMAND_FORMAT'].filter(x => x) }; })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "880b88cb-29be-4911-9e6a-1cff14ae8cd9",
+      "name": "Check Command and Owner",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "c709f64a-04e8-46b4-9294-093ece28ba82",
+      "name": "Called from Intake",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cmd1",
+              "leftValue": "={{ $json.cmd.format_ok && $json.cmd.owner_ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "de011c22-b05e-4e94-b5b0-76cf421a2533",
+      "name": "Command and Owner OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.cmd.token }}",
+        "dataPropertyName": "token_hash"
+      },
+      "id": "e2a1add8-92e4-451b-b5f2-636ba9f3657c",
+      "name": "Hash Presented Token",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        800,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "token_hash",
+              "keyValue": "={{ $json.token_hash }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "7ec446ed-51fd-4bec-9f54-4726446214d0",
+      "name": "Lookup Proposal by Token",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "27E7z49RMAy0liUe",
+          "cachedResultName": "ssa_ledger_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shop_id",
+              "keyValue": "={{ ($('Lookup Proposal by Token').all().map(i => i.json).filter(r => r.event_id)[0] ?? {}).shop_id ?? '__none__' }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "66c64c14-d36e-4e29-822f-80835956a5a7",
+      "name": "Lookup Ledger State",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1248,
+        240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bui0",
+              "name": "binding_string",
+              "type": "string",
+              "value": "={{ (() => { const r = $('Lookup Proposal by Token').all().map(i => i.json).filter(x => x.event_id)[0]; return r ? [r.event_id, r.shop_id, r.journal_id, r.event_type, r.ledger_revision, r.expires_epoch, r.sender_id, r.payload_canonical].join('|') : 'NONE'; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7c10293c-4a2f-427a-b592-91a261b042fb",
+      "name": "Rebuild Binding",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1472,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.binding_string }}",
+        "dataPropertyName": "binding_hash_check"
+      },
+      "id": "100d279a-081c-4d21-a898-03de337dc3da",
+      "name": "Hash Rebuilt Binding",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "val0",
+              "name": "verdict",
+              "type": "object",
+              "value": "={{ (() => { const rows = $('Lookup Proposal by Token').all().map(i => i.json).filter(r => r.event_id); const led = $('Lookup Ledger State').all().map(i => i.json).filter(r => r.journal_id); const who = $('Check Command and Owner').first().json; if (rows.length === 0) return { ok: false, reasons: ['TOKEN_NOT_FOUND_OR_ALREADY_USED'] }; if (rows.length > 1) return { ok: false, reasons: ['DUPLICATE_TOKEN_HASH'] }; const r = rows[0]; const reasons = []; if (r.status !== 'APPROVAL_ISSUED') reasons.push('NOT_APPROVABLE:' + r.status); if ($now.toMillis() > r.expires_epoch) reasons.push('EXPIRED'); if (String(r.sender_id) !== String(who.sender_id)) reasons.push('SENDER_MISMATCH'); if (led.length !== 1) reasons.push('LEDGER_STATE_UNAVAILABLE'); else if (led[0].revision !== r.ledger_revision || led[0].journal_id !== r.journal_id || led[0].shop_id !== r.shop_id) reasons.push('STALE_LEDGER_REVISION'); if ($json.binding_hash_check !== r.binding_hash) reasons.push('BINDING_MISMATCH'); return { ok: reasons.length === 0, reasons: reasons, event_id: r.event_id }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ca51ffe6-87a2-46ce-b255-59ef774ed3b9",
+      "name": "Validate Approval",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1920,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "app1",
+              "leftValue": "={{ $json.verdict.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ff01f3e0-aaa2-4bce-87fe-96faea4788a5",
+      "name": "Approval Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2144,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $json.verdict.event_id }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "=APPROVAL_ISSUED"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "COMMIT_VALIDATING",
+            "token_hash": "",
+            "status_reason": "Token consumed; re-validating",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "token_hash",
+              "displayName": "token_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b6c50680-8fd6-4f30-9416-30b154e065fe",
+      "name": "Reserve Approval (consume token)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1328,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Validate Approval').first().json.verdict.event_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "455817b0-fd8b-416b-b2c4-4195170547b1",
+      "name": "Re-read Proposal",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1552,
+        176
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "con0",
+              "name": "reservation",
+              "type": "object",
+              "value": "={{ (() => { const rows = $input.all().map(i => i.json).filter(r => r.event_id); if (rows.length !== 1) return { ok: false, reasons: ['RESERVATION_ROW_COUNT:' + rows.length] }; const r = rows[0]; const reasons = []; if (r.status !== 'COMMIT_VALIDATING') reasons.push('RESERVATION_NOT_CONFIRMED:' + r.status); if (r.token_hash) reasons.push('TOKEN_NOT_CONSUMED'); if ($now.toMillis() > r.expires_epoch) reasons.push('EXPIRED_DURING_COMMIT'); return { ok: reasons.length === 0, reasons: reasons }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8858b7a3-584f-4037-8934-bd2551719ec0",
+      "name": "Confirm Reservation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1776,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "res1",
+              "leftValue": "={{ $json.reservation.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0afe9bc3-165d-4323-b738-48d80187ad77",
+      "name": "Reservation Confirmed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2000,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Validate Approval').first().json.verdict.event_id }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "=COMMIT_VALIDATING"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "VALIDATED_NOT_COMMITTED",
+            "status_reason": "Dry run: ledger write path not implemented",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "47f4d049-9ec9-42aa-b4f9-9fe1eb21d2cb",
+      "name": "Mark VALIDATED_NOT_COMMITTED",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1856,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "okR0",
+              "name": "result",
+              "type": "string",
+              "value": "COMMIT_VALIDATED_NOT_COMMITTED"
+            },
+            {
+              "id": "okR1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "okR2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'COMMIT validated for ' + $('Validate Approval').first().json.verdict.event_id + ' but NOT committed: the ledger write path is not implemented yet. No balance, stock or journal changed. The token is consumed.' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e20c6820-2a3a-432a-bbce-e68e6f7099ed",
+      "name": "Build Validated Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2080,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "rej0",
+              "name": "result",
+              "type": "string",
+              "value": "COMMIT_REJECTED"
+            },
+            {
+              "id": "rej1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "rej2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'COMMIT rejected: ' + (($json.verdict ?? $json.reservation ?? $json.cmd).reasons ?? ['UNKNOWN']).join(', ') + '. Nothing was committed.' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a622029a-8e09-4d45-8066-3e415ee97acd",
+      "name": "Build Rejection",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1968,
+        240
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run Commit Test": {
+      "main": [
+        [
+          {
+            "node": "Check Command and Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Command and Owner": {
+      "main": [
+        [
+          {
+            "node": "Command and Owner OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called from Intake": {
+      "main": [
+        [
+          {
+            "node": "Check Command and Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Command and Owner OK?": {
+      "main": [
+        [
+          {
+            "node": "Hash Presented Token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Presented Token": {
+      "main": [
+        [
+          {
+            "node": "Lookup Proposal by Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Proposal by Token": {
+      "main": [
+        [
+          {
+            "node": "Lookup Ledger State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Ledger State": {
+      "main": [
+        [
+          {
+            "node": "Rebuild Binding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rebuild Binding": {
+      "main": [
+        [
+          {
+            "node": "Hash Rebuilt Binding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Rebuilt Binding": {
+      "main": [
+        [
+          {
+            "node": "Validate Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Approval": {
+      "main": [
+        [
+          {
+            "node": "Approval Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval Valid?": {
+      "main": [
+        [
+          {
+            "node": "Reserve Approval (consume token)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reserve Approval (consume token)": {
+      "main": [
+        [
+          {
+            "node": "Re-read Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-read Proposal": {
+      "main": [
+        [
+          {
+            "node": "Confirm Reservation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm Reservation": {
+      "main": [
+        [
+          {
+            "node": "Reservation Confirmed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservation Confirmed?": {
+      "main": [
+        [
+          {
+            "node": "Mark VALIDATED_NOT_COMMITTED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark VALIDATED_NOT_COMMITTED": {
+      "main": [
+        [
+          {
+            "node": "Build Validated Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "865c0d74-3e17-4405-9462-5bb5cbebc7ef",
+  "meta": {
+    "instanceId": "6ace28077ab79676f89792b4efff45f954dc47e55a52ae057ab4031d0a81e358"
+  },
+  "nodeGroups": [
+    {
+      "id": "3a43f6bb-3a34-4327-b475-a4668f3a9512",
+      "name": "Check command and owner",
+      "nodeIds": [
+        "880b88cb-29be-4911-9e6a-1cff14ae8cd9",
+        "de011c22-b05e-4e94-b5b0-76cf421a2533"
+      ],
+      "description": "Accepts only the exact text COMMIT plus a 16-character token from the registered owner; anything else is rejected"
+    },
+    {
+      "id": "6242bf4d-3c79-452c-9c68-452486c4934e",
+      "name": "Validate stored approval",
+      "nodeIds": [
+        "e2a1add8-92e4-451b-b5f2-636ba9f3657c",
+        "7ec446ed-51fd-4bec-9f54-4726446214d0",
+        "66c64c14-d36e-4e29-822f-80835956a5a7",
+        "7c10293c-4a2f-427a-b592-91a261b042fb",
+        "100d279a-081c-4d21-a898-03de337dc3da",
+        "ca51ffe6-87a2-46ce-b255-59ef774ed3b9",
+        "ff01f3e0-aaa2-4bce-87fe-96faea4788a5"
+      ],
+      "description": "Finds the proposal by token hash and checks status, expiry, sender, ledger revision and the binding hash"
+    },
+    {
+      "id": "38f46d88-6193-401a-a45e-21183e9e1581",
+      "name": "Reserve and re-check",
+      "nodeIds": [
+        "b6c50680-8fd6-4f30-9416-30b154e065fe",
+        "455817b0-fd8b-416b-b2c4-4195170547b1",
+        "8858b7a3-584f-4037-8934-bd2551719ec0",
+        "0afe9bc3-165d-4323-b738-48d80187ad77"
+      ],
+      "description": "Consumes the token, then re-reads the proposal to confirm the reservation; this narrows but cannot remove races"
+    },
+    {
+      "id": "20e6e7ea-501c-47c7-a593-2d2f70c6a498",
+      "name": "Record validation only",
+      "nodeIds": [
+        "47f4d049-9ec9-42aa-b4f9-9fe1eb21d2cb",
+        "e20c6820-2a3a-432a-bbce-e68e6f7099ed"
+      ],
+      "description": "Marks the proposal VALIDATED_NOT_COMMITTED; no ledger, journal, balance or stock write exists in this workflow"
+    }
+  ],
+  "id": "qohnnpf1Lc4eQoC0",
+  "tags": []
+}

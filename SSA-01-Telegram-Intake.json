@@ -1,0 +1,962 @@
+{
+  "name": "SSA-01-Telegram-Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "0df24475-2a17-4f6e-ac7f-2b649592bfbf",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        96
+      ],
+      "webhookId": "42526c62-515c-40e7-9d74-786cef3d8715",
+      "credentials": {
+        "telegramApi": {
+          "id": "wEaLkkE4d7gCF7uD",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "source_update_id",
+              "type": "string",
+              "value": "={{ String($json.update_id) }}"
+            },
+            {
+              "id": "a2",
+              "name": "source_message_id",
+              "type": "string",
+              "value": "={{ String($json.message.message_id) }}"
+            },
+            {
+              "id": "a3",
+              "name": "sender_id",
+              "type": "string",
+              "value": "={{ String($json.message.from.id) }}"
+            },
+            {
+              "id": "a4",
+              "name": "chat_id",
+              "type": "string",
+              "value": "={{ String($json.message.chat.id) }}"
+            },
+            {
+              "id": "a5",
+              "name": "text",
+              "type": "string",
+              "value": "={{ $json.message.text ?? \"\" }}"
+            },
+            {
+              "id": "a6",
+              "name": "owner_telegram_id",
+              "type": "string",
+              "value": "7973198714"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0820fe04-aaf7-47e4-976b-b9f84199846a",
+      "name": "Extract Update Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.sender_id }}",
+              "rightValue": "={{ $json.owner_telegram_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5d6711b6-7b22-41be-881c-6a8b3da82a09",
+      "name": "Is Authorized Owner?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "pc1",
+              "name": "parsed",
+              "type": "object",
+              "value": "={{ (() => { const t = String($json.text || '').trim(); const w = t.split(' ').filter(x => x); const cmd = (w[0] || '').toUpperCase().split('/').join(''); const rest = w.slice(1); const num = s => { const n = Number(String(s).replace(/[₹,]/g, '')); return String(s).trim() !== '' && isFinite(n) ? n : String(s); }; const tail = arr => ({ product_name: arr.slice(0, -2).join(' '), quantity: num(arr[arr.length - 2]), unit: String(arr[arr.length - 1]).toLowerCase() }); if (cmd === 'SALE' && rest.length === 1) return { kind: 'TRANSACTION', event_type: 'SALE', amount: num(rest[0]) }; if ((cmd === 'CREDIT' || cmd === 'REPAY') && rest.length >= 2) return { kind: 'TRANSACTION', event_type: cmd === 'CREDIT' ? 'CREDIT_SALE' : 'REPAYMENT', customer_name: rest.slice(0, -1).join(' '), amount: num(rest[rest.length - 1]) }; if ((cmd === 'STOCKIN' || cmd === 'STOCKOUT') && rest.length >= 3) return Object.assign({ kind: 'TRANSACTION', event_type: cmd === 'STOCKIN' ? 'STOCK_IN' : 'STOCK_OUT' }, tail(rest)); if (cmd === 'ORDER') { const p = t.slice(t.indexOf(' ') + 1).split('|'); const pw = p.length === 2 ? p[1].trim().split(' ').filter(x => x) : []; if (p.length === 2 && p[0].trim() && pw.length >= 3 && t.indexOf(' ') > 0) return Object.assign({ kind: 'TRANSACTION', event_type: 'ACCEPTED_ORDER', customer_name: p[0].trim() }, tail(pw)); } if (['BALANCE', 'STOCK', 'HELP'].includes(cmd)) return { kind: 'QUERY', query_type: cmd }; return { kind: 'UNSUPPORTED' }; })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "81f3f432-333a-46d3-9538-0235936667a3",
+      "name": "Parse Command",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        752,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "rt1",
+                    "leftValue": "={{ $json.parsed.kind }}",
+                    "rightValue": "TRANSACTION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Transaction"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "rt2",
+                    "leftValue": "={{ $json.parsed.kind }}",
+                    "rightValue": "QUERY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Read-only query"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Unsupported"
+        }
+      },
+      "id": "f6d3d57d-a4bc-40c1-a28d-c16fe159124c",
+      "name": "Route Command",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        976,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify(Object.fromEntries(Object.entries({ event_type: $json.parsed.event_type, customer_name: $json.parsed.customer_name, product_name: $json.parsed.product_name, amount: $json.parsed.amount, quantity: $json.parsed.quantity, unit: $json.parsed.unit, source_update_id: $json.source_update_id, source_message_id: $json.source_message_id, sender_id: $json.sender_id, chat_id: $json.chat_id, source_text: $json.text }).filter(([k, v]) => v !== undefined && v !== null))) }}",
+        "options": {}
+      },
+      "id": "a14cc2eb-59b2-48a2-b046-c2f4c05b78f2",
+      "name": "Build Prepare Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        752,
+        -352
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Ln1TENkZbV78ey6O",
+          "cachedResultName": "ssa_processed_updates"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "source_update_id",
+              "keyValue": "={{ $('Build Prepare Input').first().json.source_update_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "cbd67644-2710-434c-b9ac-123ac6555792",
+      "name": "Lookup Processed Update",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1504,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dd1",
+              "name": "dedupe",
+              "type": "object",
+              "value": "={{ (() => { const rows = $input.all().map(i => i.json).filter(r => r.source_update_id); const now = $now.toMillis(); if (rows.length === 0) return { proceed: true, action: 'PROCESS', reason: 'New update ID' }; if (rows.some(r => r.status === 'PROCESSED')) return { proceed: false, action: 'SKIP', reason: 'Already processed' }; const live = rows.some(r => r.status === 'RECEIVED' && (now - Date.parse(r.received_iso)) < 120000); if (live) return { proceed: false, action: 'SKIP', reason: 'Still in progress (claimed under 120 s ago)' }; return { proceed: true, action: 'RETRY', reason: 'Previous attempt was ' + rows[0].status + ' or stale' }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d48d16e6-3bc1-4969-9f74-b137c94ad889",
+      "name": "Decide Duplicate",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1728,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "sp1",
+              "leftValue": "={{ $json.dedupe.proceed }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "20e3ad5b-f5cd-4255-8e9b-1622fe2100d4",
+      "name": "Process This Update?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1952,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Ln1TENkZbV78ey6O",
+          "cachedResultName": "ssa_processed_updates"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "source_update_id",
+              "keyValue": "={{ $('Build Prepare Input').first().json.source_update_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "source_update_id": "={{ $('Build Prepare Input').first().json.source_update_id }}",
+            "source_message_id": "={{ $('Build Prepare Input').first().json.source_message_id }}",
+            "sender_id": "={{ $('Build Prepare Input').first().json.sender_id }}",
+            "status": "RECEIVED",
+            "received_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "source_update_id",
+              "displayName": "source_update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_message_id",
+              "displayName": "source_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sender_id",
+              "displayName": "sender_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "received_iso",
+              "displayName": "received_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "383cca1b-4094-40a6-865e-f047dca5092e",
+      "name": "Claim Update (RECEIVED)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2176,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify($('Build Prepare Input').first().json) }}",
+        "options": {}
+      },
+      "id": "1a50cf31-a7c2-4b5a-9962-65512c9dfe19",
+      "name": "Restore Prepare Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "EX8ok0beOCJqdpaN",
+          "cachedResultName": "SSA-02B-Resolve-and-Store-Pending"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "71e57981-c2de-4322-9d41-cf6c0d9c9a87",
+      "name": "Prepare Proposal (SSA-02B)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        976,
+        -352
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Build Prepare Input').first().json.chat_id }}",
+        "text": "={{ String($json.message).replace(/&(?!(?:amp|lt|gt|quot|#[0-9]+);)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "ae7643ca-9f2a-4eb4-8810-055b8e587c43",
+      "name": "Reply Preview",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1200,
+        -352
+      ],
+      "webhookId": "cb4b2d3e-bb3d-4194-bcdc-c0289bfe57f6",
+      "credentials": {
+        "telegramApi": {
+          "id": "wEaLkkE4d7gCF7uD",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Ln1TENkZbV78ey6O",
+          "cachedResultName": "ssa_processed_updates"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "source_update_id",
+              "keyValue": "={{ $('Build Prepare Input').first().json.source_update_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "PROCESSED"
+          },
+          "schema": [
+            {
+              "id": "source_update_id",
+              "displayName": "source_update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_message_id",
+              "displayName": "source_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sender_id",
+              "displayName": "sender_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "received_iso",
+              "displayName": "received_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b8465328-df49-4c8d-92a5-49a0073c244e",
+      "name": "Mark Update PROCESSED",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3072,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Ln1TENkZbV78ey6O",
+          "cachedResultName": "ssa_processed_updates"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "source_update_id",
+              "keyValue": "={{ $('Build Prepare Input').first().json.source_update_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "FAILED"
+          },
+          "schema": [
+            {
+              "id": "source_update_id",
+              "displayName": "source_update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_message_id",
+              "displayName": "source_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sender_id",
+              "displayName": "sender_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "received_iso",
+              "displayName": "received_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "12c53f90-c3cb-4dfc-8570-5a9c48756c0f",
+      "name": "Mark Update FAILED",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3072,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Build Prepare Input').first().json.chat_id }}",
+        "text": "Preparing the preview failed. Nothing was committed. Please send the command again. A pending proposal from this attempt, if one was stored, expires in 90 seconds.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "4170676a-9ce9-452a-90e8-a6af479cd3ac",
+      "name": "Reply Preparation Failed",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3296,
+        96
+      ],
+      "webhookId": "abd98b5b-df7f-44c9-9a53-ff1bc6c7240f",
+      "credentials": {
+        "telegramApi": {
+          "id": "wEaLkkE4d7gCF7uD",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ String($json.parsed.query_type === 'HELP' ? 'Supported commands (preview only, nothing is committed): SALE 200 | CREDIT Sunita Deshmukh 500 | REPAY Sunita Deshmukh 200 | STOCKIN Sugar 10 kg | STOCKOUT Sugar 2 kg | ORDER Sunita Deshmukh | Sugar 5 kg' : 'Read-only query ' + $json.parsed.query_type + ' recognised. Balance and stock lookups are not built yet. No proposal was created and nothing was changed.').replace(/&(?!(?:amp|lt|gt|quot|#[0-9]+);)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "45723388-a736-4a28-96c0-90f3c5ce5d09",
+      "name": "Reply Read-Only Query",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1392,
+        176
+      ],
+      "webhookId": "b2c8f071-fdcb-47eb-bd53-541672104954",
+      "credentials": {
+        "telegramApi": {
+          "id": "wEaLkkE4d7gCF7uD",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "I could not read that as a transaction. Supported commands (preview only, nothing is committed): SALE 200 | CREDIT Sunita Deshmukh 500 | REPAY Sunita Deshmukh 200 | STOCKIN Sugar 10 kg | STOCKOUT Sugar 2 kg | ORDER Sunita Deshmukh | Sugar 5 kg",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "639411f5-0ad8-4d15-9c35-74f1b8e84978",
+      "name": "Reply Unsupported Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1392,
+        368
+      ],
+      "webhookId": "e003ee93-d8b1-4830-91d1-ab39fe20a358",
+      "credentials": {
+        "telegramApi": {
+          "id": "wEaLkkE4d7gCF7uD",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "Unauthorized: this bot only accepts commands from the registered shop owner. No action taken.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "c96a2229-0293-47d6-a44a-87142c19e038",
+      "name": "Reply Unauthorized",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        672,
+        192
+      ],
+      "webhookId": "bffd14e4-a0c5-4158-96bb-dc749d38ecdc",
+      "credentials": {
+        "telegramApi": {
+          "id": "wEaLkkE4d7gCF7uD",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Update Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Update Fields": {
+      "main": [
+        [
+          {
+            "node": "Is Authorized Owner?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Authorized Owner?": {
+      "main": [
+        [
+          {
+            "node": "Parse Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Command": {
+      "main": [
+        [
+          {
+            "node": "Route Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Command": {
+      "main": [
+        [
+          {
+            "node": "Build Prepare Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply Read-Only Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply Unsupported Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Prepare Input": {
+      "main": [
+        [
+          {
+            "node": "Lookup Processed Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Processed Update": {
+      "main": [
+        [
+          {
+            "node": "Decide Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Process This Update?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process This Update?": {
+      "main": [
+        [
+          {
+            "node": "Claim Update (RECEIVED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim Update (RECEIVED)": {
+      "main": [
+        [
+          {
+            "node": "Restore Prepare Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Prepare Input": {
+      "main": [
+        [
+          {
+            "node": "Prepare Proposal (SSA-02B)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Proposal (SSA-02B)": {
+      "main": [
+        [
+          {
+            "node": "Reply Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Update FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply Preview": {
+      "main": [
+        [
+          {
+            "node": "Mark Update PROCESSED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Update FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Update FAILED": {
+      "main": [
+        [
+          {
+            "node": "Reply Preparation Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c45c61fb-994a-4984-8ca1-209815b133cd",
+  "meta": {
+    "instanceId": "6ace28077ab79676f89792b4efff45f954dc47e55a52ae057ab4031d0a81e358"
+  },
+  "nodeGroups": [
+    {
+      "id": "87d76324-8969-4646-81fd-d44d4deb0d23",
+      "name": "Verify owner",
+      "nodeIds": [
+        "0820fe04-aaf7-47e4-976b-b9f84199846a",
+        "5d6711b6-7b22-41be-881c-6a8b3da82a09"
+      ],
+      "description": "Reads Telegram update, message, sender and chat IDs and checks the sender is the registered shop owner"
+    },
+    {
+      "id": "4a6838e1-9ac2-4afb-ae8d-03ebd4a91cd9",
+      "name": "Interpret command",
+      "nodeIds": [
+        "81f3f432-333a-46d3-9538-0235936667a3",
+        "f6d3d57d-a4bc-40c1-a28d-c16fe159124c"
+      ],
+      "description": "Reads the owner text as a fixed command and separates transactions, read-only queries and unsupported messages"
+    },
+    {
+      "id": "bb3ff9ab-2b32-40bc-ad44-4f43cd7b831e",
+      "name": "Prepare once and preview",
+      "nodeIds": [
+        "a14cc2eb-59b2-48a2-b046-c2f4c05b78f2",
+        "cbd67644-2710-434c-b9ac-123ac6555792",
+        "d48d16e6-3bc1-4969-9f74-b137c94ad889",
+        "20e3ad5b-f5cd-4255-8e9b-1622fe2100d4",
+        "383cca1b-4094-40a6-865e-f047dca5092e",
+        "1a50cf31-a7c2-4b5a-9962-65512c9dfe19",
+        "71e57981-c2de-4322-9d41-cf6c0d9c9a87",
+        "ae7643ca-9f2a-4eb4-8810-055b8e587c43",
+        "b8465328-df49-4c8d-92a5-49a0073c244e",
+        "12c53f90-c3cb-4dfc-8570-5a9c48756c0f",
+        "4170676a-9ce9-452a-90e8-a6af479cd3ac"
+      ],
+      "description": "Skips repeated Telegram updates, records each attempt, stores the pending proposal and replies with the preview; nothing is committed"
+    }
+  ],
+  "id": "dB6D6PJOPQwojShR",
+  "tags": []
+}

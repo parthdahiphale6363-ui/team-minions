@@ -1,0 +1,214 @@
+{
+  "name": "SSA-02-Prepare-Preview",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "2beb28db-4dda-4dac-a9d5-dfc478e552ae",
+      "name": "Run Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"event_type\": \"REPAYMENT\",\n  \"customer_name\": \"Ramesh\",\n  \"amount\": 200,\n  \"currency\": \"INR\"\n}",
+        "options": {}
+      },
+      "id": "57425f20-e487-4a52-a44d-8c3f9f59c6d2",
+      "name": "Test Proposal (edit me)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "v1",
+              "name": "errors",
+              "type": "array",
+              "value": "={{ (() => { const j = $json; const e = []; const need = { SALE: ['amount'], CREDIT_SALE: ['customer_name','amount'], REPAYMENT: ['customer_name','amount'], STOCK_IN: ['product_name','quantity','unit'], STOCK_OUT: ['product_name','quantity','unit'], ACCEPTED_ORDER: ['customer_name','product_name','quantity','unit'] }; const allowed = ['event_type','customer_name','product_name','amount','quantity','unit','currency']; Object.keys(j).forEach(k => { if (!allowed.includes(k)) e.push('Unknown field: ' + k); }); const req = need[j.event_type]; if (!req) { e.push('Unsupported event_type: ' + j.event_type); return e; } req.forEach(f => { const v = j[f]; if (v === null || v === undefined || v === '') e.push('Missing required field: ' + f); }); ['amount','quantity'].forEach(f => { const v = j[f]; if (v !== null && v !== undefined && v !== '') { if (typeof v !== 'number' || !isFinite(v)) e.push(f + ' must be a number'); else if (v <= 0) e.push(f + ' must be positive'); } }); if (j.unit && !['kg','g','litre','ml','packet','piece','dozen'].includes(j.unit)) e.push('Invalid unit: ' + j.unit); if (j.currency && j.currency !== 'INR') e.push('Currency must be INR'); return e; })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "26eb8d76-f9ac-4eca-902b-056e2999b837",
+      "name": "Validate Proposal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        448,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ok1",
+              "leftValue": "={{ $json.errors.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fd3dd58e-95db-41c6-88bc-c62f5cbf03f8",
+      "name": "Is Proposal Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "p1",
+              "name": "result",
+              "type": "string",
+              "value": "PREVIEW_OK"
+            },
+            {
+              "id": "p2",
+              "name": "preview_text",
+              "type": "string",
+              "value": "={{ [ 'TRANSACTION PREVIEW (DRAFT - NOTHING SAVED)', '', 'Type: ' + $json.event_type, $json.customer_name ? 'Customer (as typed, not yet verified): ' + $json.customer_name : '', $json.product_name ? 'Product (as typed, not yet verified): ' + $json.product_name : '', $json.amount ? 'Amount: Rs ' + $json.amount : '', $json.quantity ? 'Quantity: ' + $json.quantity + ' ' + $json.unit : '', 'Current balance / stock: NOT AVAILABLE (ledger not built yet)', 'Projected balance / stock: NOT AVAILABLE (ledger not built yet)', '', 'No event ID, token, or expiry yet. This milestone cannot commit anything.' ].filter(s => s !== '').join('\\n') }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "0f43273a-0ab8-4847-bf8c-b8d0cb9c0967",
+      "name": "Build Preview",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        896,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "result",
+              "type": "string",
+              "value": "REJECTED"
+            },
+            {
+              "id": "r2",
+              "name": "preview_text",
+              "type": "string",
+              "value": "={{ 'PROPOSAL REJECTED - NOTHING SAVED\\n' + $json.errors.map(x => '- ' + x).join('\\n') }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "37eabcf1-db9d-4817-af78-f2cb8a41a4a1",
+      "name": "Build Rejection",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        896,
+        192
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run Test": {
+      "main": [
+        [
+          {
+            "node": "Test Proposal (edit me)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Proposal (edit me)": {
+      "main": [
+        [
+          {
+            "node": "Validate Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Proposal": {
+      "main": [
+        [
+          {
+            "node": "Is Proposal Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Proposal Valid?": {
+      "main": [
+        [
+          {
+            "node": "Build Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d16df6df-38a6-4479-93fa-c02ad6c640a3",
+  "meta": {
+    "instanceId": "6ace28077ab79676f89792b4efff45f954dc47e55a52ae057ab4031d0a81e358"
+  },
+  "nodeGroups": [],
+  "id": "d7YefNvi5UTJLZ4m",
+  "tags": []
+}

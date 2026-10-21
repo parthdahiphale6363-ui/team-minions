@@ -1,0 +1,587 @@
+{
+  "name": "SSA-03-Issue-Approval-Token",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "01671b50-4d98-46bd-b882-b98db472fe4a",
+      "name": "Run Issue Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "iss0",
+              "name": "event_id",
+              "type": "string",
+              "value": "={{ String($json.event_id ?? '') }}"
+            },
+            {
+              "id": "iss1",
+              "name": "sender_id",
+              "type": "string",
+              "value": "={{ String($json.sender_id ?? '') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "61f62b2a-5e8b-4725-bcaf-83818ad0886b",
+      "name": "Issue Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "c55c0a8e-7e6e-469a-95c9-feb8642010f8",
+      "name": "Called from Intake",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $json.event_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "fbeac32c-39dc-4ef4-a298-50bc43f2d7a2",
+      "name": "Get Proposal",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        496,
+        224
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "27E7z49RMAy0liUe",
+          "cachedResultName": "ssa_ledger_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shop_id",
+              "keyValue": "={{ ($('Get Proposal').all().map(i => i.json).filter(r => r.event_id)[0] ?? {}).shop_id ?? '__none__' }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "7a42f719-7e5d-4a84-aed4-db8cd4097a41",
+      "name": "Get Ledger State",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        224
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "che0",
+              "name": "verdict",
+              "type": "object",
+              "value": "={{ (() => { const rows = $('Get Proposal').all().map(i => i.json).filter(r => r.event_id); const led = $('Get Ledger State').all().map(i => i.json).filter(r => r.journal_id); const who = $('Issue Input').first().json; const reasons = []; if (rows.length === 0) return { ok: false, reasons: ['PROPOSAL_NOT_FOUND'] }; if (rows.length > 1) return { ok: false, reasons: ['DUPLICATE_EVENT_ID'] }; const r = rows[0]; if (who.sender_id !== '7973198714') reasons.push('NOT_OWNER'); if (String(r.sender_id) !== who.sender_id) reasons.push('SENDER_MISMATCH'); if (r.status !== 'PENDING') reasons.push('NOT_PENDING:' + r.status); if (r.token_hash) reasons.push('TOKEN_ALREADY_ISSUED'); if ($now.toMillis() > r.expires_epoch) reasons.push('EXPIRED'); if (led.length !== 1) reasons.push('LEDGER_STATE_UNAVAILABLE'); else if (led[0].revision !== r.ledger_revision || led[0].journal_id !== r.journal_id) reasons.push('STALE_LEDGER_REVISION'); return { ok: reasons.length === 0, reasons: reasons }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f8c82bbb-bcc3-4210-9dcf-8816ac491351",
+      "name": "Check Issuable",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        944,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "can1",
+              "leftValue": "={{ $json.verdict.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fb0c1d71-2efd-43a3-ab6f-6951aaa69778",
+      "name": "Can Issue Token?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1168,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "action": "generate",
+        "encodingType": "hex",
+        "stringLength": 16
+      },
+      "id": "2c47607b-2c97-443d-8121-559e117be0d2",
+      "name": "Generate Token",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        800,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bui0",
+              "name": "approval_code",
+              "type": "string",
+              "value": "={{ $json.data }}"
+            },
+            {
+              "id": "bui1",
+              "name": "binding_string",
+              "type": "string",
+              "value": "={{ (() => { const r = $('Get Proposal').all().map(i => i.json).filter(x => x.event_id)[0]; return [r.event_id, r.shop_id, r.journal_id, r.event_type, r.ledger_revision, r.expires_epoch, r.sender_id, r.payload_canonical].join('|'); })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4cc24c18-08bf-45f0-a282-a7af56bdd9db",
+      "name": "Build Binding",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1024,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.approval_code }}",
+        "dataPropertyName": "token_hash"
+      },
+      "id": "80d8495c-feb8-4873-af76-763d0b0e85a5",
+      "name": "Hash Token",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.binding_string }}",
+        "dataPropertyName": "binding_hash"
+      },
+      "id": "8994d889-2269-438d-8d3f-c955c284373b",
+      "name": "Hash Binding",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Issue Input').first().json.event_id }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "=PENDING"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "token_hash": "={{ $json.token_hash }}",
+            "binding_hash": "={{ $json.binding_hash }}",
+            "status": "APPROVAL_ISSUED",
+            "status_reason": "Token issued; awaiting COMMIT",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "token_hash",
+              "displayName": "token_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "binding_hash",
+              "displayName": "binding_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3d655b41-bb8b-437a-855b-f384f0a962b6",
+      "name": "Store Token Hash",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1696,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "iss0",
+              "name": "result",
+              "type": "string",
+              "value": "TOKEN_ISSUED"
+            },
+            {
+              "id": "iss1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "iss2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ (() => { const r = $('Get Proposal').all().map(i => i.json).filter(x => x.event_id)[0]; const left = Math.round((r.expires_epoch - $now.toMillis()) / 1000); return 'Approval token issued for ' + r.event_type + '. To approve, send exactly: COMMIT ' + $('Hash Binding').first().json.approval_code + ' - valid for about ' + left + ' more seconds. Only the SHA-256 hash is stored. Ledger writes are not enabled yet.'; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "97e80c04-8b03-4441-934a-d7e59f618687",
+      "name": "Build Token Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1920,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ref0",
+              "name": "result",
+              "type": "string",
+              "value": "TOKEN_REFUSED"
+            },
+            {
+              "id": "ref1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "ref2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'No token issued: ' + $json.verdict.reasons.join(', ') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f4e5e112-af30-431e-a73c-ae620567b73b",
+      "name": "Refuse Token",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        912,
+        192
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run Issue Test": {
+      "main": [
+        [
+          {
+            "node": "Issue Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Issue Input": {
+      "main": [
+        [
+          {
+            "node": "Get Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called from Intake": {
+      "main": [
+        [
+          {
+            "node": "Issue Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Proposal": {
+      "main": [
+        [
+          {
+            "node": "Get Ledger State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Ledger State": {
+      "main": [
+        [
+          {
+            "node": "Check Issuable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Issuable": {
+      "main": [
+        [
+          {
+            "node": "Can Issue Token?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Can Issue Token?": {
+      "main": [
+        [
+          {
+            "node": "Generate Token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuse Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Token": {
+      "main": [
+        [
+          {
+            "node": "Build Binding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Binding": {
+      "main": [
+        [
+          {
+            "node": "Hash Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Token": {
+      "main": [
+        [
+          {
+            "node": "Hash Binding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Binding": {
+      "main": [
+        [
+          {
+            "node": "Store Token Hash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Token Hash": {
+      "main": [
+        [
+          {
+            "node": "Build Token Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "0069bb73-01fa-48d1-887c-d7609e70ae8c",
+  "meta": {
+    "instanceId": "6ace28077ab79676f89792b4efff45f954dc47e55a52ae057ab4031d0a81e358"
+  },
+  "nodeGroups": [
+    {
+      "id": "68c6260a-a241-44c7-9330-8ce64dd11d9b",
+      "name": "Check proposal can be approved",
+      "nodeIds": [
+        "61f62b2a-5e8b-4725-bcaf-83818ad0886b",
+        "fbeac32c-39dc-4ef4-a298-50bc43f2d7a2",
+        "7a42f719-7e5d-4a84-aed4-db8cd4097a41",
+        "f8c82bbb-bcc3-4210-9dcf-8816ac491351",
+        "fb0c1d71-2efd-43a3-ab6f-6951aaa69778"
+      ],
+      "description": "Re-reads the stored proposal and ledger revision; only an unexpired PENDING proposal for the owner can get a token"
+    },
+    {
+      "id": "23f33f7c-4b9e-4cf5-ab01-81f2dbdc089d",
+      "name": "Issue and store token",
+      "nodeIds": [
+        "2c47607b-2c97-443d-8121-559e117be0d2",
+        "4cc24c18-08bf-45f0-a282-a7af56bdd9db",
+        "80d8495c-feb8-4873-af76-763d0b0e85a5",
+        "8994d889-2269-438d-8d3f-c955c284373b",
+        "3d655b41-bb8b-437a-855b-f384f0a962b6",
+        "97e80c04-8b03-4441-934a-d7e59f618687"
+      ],
+      "description": "Creates a random token, stores only its hash plus a binding hash of the proposal details; nothing is committed"
+    }
+  ],
+  "id": "9DGy94gzbEYB1Vn8",
+  "tags": []
+}

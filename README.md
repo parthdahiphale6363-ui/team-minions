@@ -1,305 +1,257 @@
-# Shop Assistant AI
+# Small Shop Assistant 🏪🤖
 
-> Run sales, stock, and customer khata from one Telegram chat.
+> **Technovision 2026: Zero Syntax** | **Team MINIONS**  
+> A transactionally safe, auditable conversational assistant for small retail shops built on **n8n**, **Telegram Bot API**, **n8n Data Tables**, and an append-only **Google Sheets EventJournal**.
 
-Shop Assistant AI is a Python-based Telegram bot concept for small shops. It lets an authorized shopkeeper record sales, purchases, payments, and inventory changes using everyday language, review each operation, and then confirm it before the records are saved to Google Sheets.
+[![n8n](https://img.shields.io/badge/Workflow-n8n-EA4B71?style=for-the-badge&logo=n8n)](https://n8n.io)
+[![Telegram](https://img.shields.io/badge/Interface-Telegram_Bot-24A1DE?style=for-the-badge&logo=telegram)](https://telegram.org)
+[![Google Sheets](https://img.shields.io/badge/Ledger-Google_Sheets-34A853?style=for-the-badge&logo=googlesheets)](https://sheets.google.com)
+[![Docker](https://img.shields.io/badge/Deploy-Docker_Compose-2496ED?style=for-the-badge&logo=docker)](docker-compose.yml)
+[![PostgreSQL](https://img.shields.io/badge/Enterprise-PostgreSQL_ACID-4169E1?style=for-the-badge&logo=postgresql)](enterprise-postgres/init_schema.sql)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
-## Table of Contents
+---
 
-- [Why Shop Assistant AI?](#why-shop-assistant-ai)
-- [Features](#features)
-- [Screenshots](#screenshots)
-- [How It Works](#how-it-works)
-- [Architecture](#architecture)
-- [Example Messages](#example-messages)
-- [Customer Reminder Flow](#customer-reminder-flow)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Setup](#setup)
-- [Configuration](#configuration)
-- [Running the Bot](#running-the-bot)
-- [Security and Data Integrity](#security-and-data-integrity)
-- [Known Limitations and Next Steps](#known-limitations-and-next-steps)
-- [Contributing](#contributing)
-- [License](#license)
+## 📸 Interface Preview
 
-## Project Screenshots
+| Telegram Interaction | Credit Balance Summary |
+|:---:|:---:|
+| ![Telegram Home](screenshots/telegram-home.png) | ![Outstanding Balances](screenshots/outstanding-balances.png) |
+| **Credit Summary & Insights** | **Verified Receipt & Confirmation** |
+| ![Credit Summary](screenshots/outstanding-credit-summary.png) | ![Payment Receipt](screenshots/payment-receipt.png) |
 
-### Telegram bot interface
-![Telegram bot home screen with supported commands and quick actions](telegram-home.png)
+---
 
-### Customer payment receipt
-![Example customer payment receipt showing amount, method, and outstanding balance](payment-receipt.png)
+## 📌 Executive Summary
 
-### Customer khata and outstanding credit
-![Example list of outstanding customer balances](outstanding-balances.png)
+Small kirana and grocery shop owners manage daily credit sales, cash sales, inventory deliveries, and debt repayments informally or via paper khata notebooks. This leads to lost revenue, double-entry errors, forgotten debts, and stock discrepancies.
 
-![Example total outstanding customer credit summary](outstanding-credit-summary.png)
+**Small Shop Assistant** bridges this gap by turning Telegram into an **enterprise-grade, ACID-like retail point-of-sale**. It eliminates accidental commits and double-spending through a strict **6-stage transaction safety lifecycle**:
 
-## Why Shop Assistant AI?
-
-Small shops often manage stock and customer credit using handwritten registers or memory. This can make it difficult to find old entries, spot low stock, track outstanding balances, and send payment reminders.
-
-Shop Assistant AI aims to make everyday bookkeeping as simple as sending a message.
-
-## Features
-
-- **Natural-language bookkeeping:** Enter transactions in everyday language instead of filling out complex forms.
-- **Sales tracking:** Record cash and credit sales after reviewing and confirming the details.
-- **Purchase tracking:** Record incoming stock, purchase costs, suppliers, and low-stock limits.
-- **Inventory management:** View stock, identify low-stock items, and prepare a reorder list.
-- **Customer khata:** Track customer balances, statements, and payments by cash or UPI.
-- **Bulk stock entry:** Add inventory items in bulk, with a review step before saving.
-- **Customer reminders:** Send reminders only after customers opt in and the shopkeeper reviews and confirms the message.
-- **Daily summary:** Review daily sales, collections, purchases, and items sold.
-- **Google Sheets storage:** Keep stock and ledger records in a familiar, shareable spreadsheet.
-- **Access control:** Restrict shop operations to configured Telegram user IDs.
-
-
-## Screenshots
-
-The screenshots below show the Telegram bot interface and example bookkeeping responses.
-
-### Telegram bot home and quick actions
-
-![Shop Assistant AI Telegram home screen](telegram-home.png)
-
-The home screen introduces the supported workflows, including sales, stock and inventory, bulk stock entry, customer khata, customer payments, reports, and quick-action buttons.
-
-### Customer payment confirmation
-
-![Customer payment receipt](payment-receipt.png)
-
-Example receipt for a payment from Ramesh showing the amount received, payment method, remaining outstanding balance, and transaction date.
-
-### Outstanding customer balances
-
-![Outstanding customer balances](outstanding-balances.png)
-
-Example list of customer balances and the total outstanding amount. The bot labels these balances as unpaid customer credit, not cash received.
-
-### Outstanding credit summary
-
-![Outstanding customer credit summary](outstanding-credit-summary.png)
-
-Example summary showing total outstanding customer credit and clarifying that the amount is unpaid credit rather than cash received.
-
-> **Note:** These are example screenshots. Names, balances, and transaction details shown are sample data from the supplied images.
-
-## How It Works
-
-1. The shopkeeper sends a message or bot command in Telegram.
-2. The bot checks whether the Telegram user is authorized.
-3. The bot interprets the request and prepares a summary.
-4. The shopkeeper reviews the summary and chooses **Confirm** or **Cancel**.
-5. If confirmed, the bot writes the transaction to the ledger and updates stock when applicable.
-6. The bot replies with the result.
-
-Cancelled requests should not be saved. If the ledger is written successfully but the stock update fails, the bot warns the shopkeeper to check both sheets before retrying.
-
-## Architecture
-
-```text
-Shopkeeper
-    |
-    v
-Telegram App <---------------- Customer (opt-in reminders)
-    |
-    v
-Telegram Bot API
-    |
-    v
-Python Bot
-    |-- main.py              Commands, buttons, and confirmations
-    |-- config.py            Bot token, authorized IDs, startup checks
-    |-- natural_language.py  Interprets everyday messages and bulk input
-    |-- sheets.py            Reads and writes Google Sheets
-    |
-    v
-Google Sheets
-    |-- Stock
-    |-- Ledger
-    |-- Customer links
+```
+PREPARE ➔ PREVIEW ➔ APPROVAL TOKEN ➔ COMMIT VALIDATION ➔ VERIFIED JOURNAL WRITE ➔ CONFIRMATION
 ```
 
-## Example Messages
+### 🛡️ Core Engineering Highlights
+- 🔒 **Cryptographically Bound Single-Use Tokens**: Every proposal generates a 16-hex token bound to the SHA-256 payload hash, shop ID, ledger revision, and actor ID (with a 90-second countdown expiry).
+- ⚡ **Zero Concurrent Race Windows**: Stamped with execution-unique lock IDs (`LOCKED:<exec_id>`) to prevent duplicate webhook delivery from writing twin records.
+- 🚫 **Zero False Successes**: Google Sheets appends are isolated via error-routing (`onError: continueErrorOutput`). If Google Sheets times out or errors, the ledger revision is **never** incremented.
+- 📦 **Real-Time Debt & Stock Projections**: Evaluates available stock (`quantity <= current_stock`) and debtor credit limits (`current_debt + amount <= credit_limit`) before staging.
+- 📊 **Native Balance & Inventory Queries**: Query individual debtors (`BALANCE Sunita`) or overall store credit (`BALANCE`), and check stock counts (`STOCK Sugar`) or full inventory (`STOCK`).
+- 🔄 **Edit & Supersede Flow**: Safely modify in-flight proposals with `EDIT <token> <new command>` which burns the old proposal and generates a fresh approval token.
 
-Examples of messages the bot is intended to understand:
+---
 
-| Message | Purpose |
-|---|---|
-| `Show stock` | View current inventory |
-| `Sold 2 kg rice for 120 cash` | Record a cash sale |
-| `Sold 1 oil for 150 on credit to Ramesh` | Record a credit sale |
-| `Ramesh paid 200 cash` | Record a customer payment |
-| `Who owes money?` | Review outstanding customer balances |
-| `Reorder list` | Identify items that need replenishment |
+## 🏗️ Architecture & Topology
 
-The bot should present a confirmation summary before saving supported changes.
-
-## Customer Reminder Flow
-
-1. The shopkeeper runs `/invitecustomer NAME` to generate a one-time linking code.
-2. The code is shared privately with the customer.
-3. The code expires after 15 minutes and can be used only once.
-4. The customer opens the bot and sends `/link CODE`.
-5. The shopkeeper runs `/remind NAME`, reviews the reminder, and confirms it.
-6. The customer can stop reminders at any time using `/stopreminders`.
-
-Only send reminders to customers who have opted in.
-
-## Tech Stack
-
-- **Language:** Python
-- **Bot interface:** Telegram Bot API
-- **Data storage:** Google Sheets
-- **Configuration:** Environment variables / local environment configuration
-
-The presentation identifies the core technologies above. Exact library versions and deployment-provider requirements depend on the implementation in the repository.
-
-## Project Structure
-
-The main modules described for this project are:
-
-```text
-.
-├── main.py
-├── config.py
-├── natural_language.py
-├── sheets.py
-├── .env.example
-├── .gitignore
-└── README.md
+```
++----------------------------------------------------------------------------------------------------+
+|                                    TELEGRAM MESSAGING LAYER                                        |
+|                               (Registered Owner: $env.OWNER_TELEGRAM_ID)                           |
++-------------------------------------------------+--------------------------------------------------+
+                                                  | Webhook (POST update)
+                                                  v
++----------------------------------------------------------------------------------------------------+
+|                                      SSA-01-Telegram-Intake                                        |
+|  - Verify Owner Telegram ID                                                                        |
+|  - Universal Deduplication (ssa_processed_updates)                                                 |
+|  - Deterministic Command Parser (COMMIT / CANCEL / EDIT / SALE / CREDIT / REPAY / STOCK / QUERY)   |
++--------+--------------------------+------------------------------+--------------------+------------+
+         |                          |                              |                    |
+         | kind: TRANSACTION        | kind: COMMIT                 | kind: CANCEL/EDIT  | kind: QUERY
+         v                          v                              v                    v
++-----------------------+  +-----------------------+  +-----------------------+  +-------------------+
+|  SSA-02B-Resolve-and- |  |  SSA-04-Commit-       |  |  SSA-05-Cancel-or-    |  |  Query Handler    |
+|  Store-Pending        |  |  Validate-Write       |  |  Edit-Invalidate      |  |  (BALANCE / STOCK |
+|                       |  |                       |  |                       |  |   / HELP)         |
+| - Validate Schema     |  | - Verify Owner/Format |  | - Verify Token & Owner|  | - Real customer & |
+| - Resolve Customer/   |  | - Rebuild Binding Hash|  | - Invalidate Token    |  |   product lookups |
+|   Product & Units     |  | - Atomic Token Burn   |  | - If CANCEL: Discard  |  |   from tables!    |
+| - Verify Stock/Debt   |  |   (COMMIT_VALIDATING) |  | - If EDIT: Chain to   |  +-------------------+
+| - Compute Projections |  | - Lock ID Verification|  |   SSA-02B with fresh  |
+| - 16-Hex Crypto Token |  |   (Prevents races!)   |  |   payload & new token |
+| - Store in Pending    |  | - Append to Google    |  +-----------------------+
+|   (APPROVAL_ISSUED)   |  |   Sheets EventJournal |
+| - Return Preview Msg  |  | - Verify Write Result |
++-----------------------+  | - Increment Revision  |
+                           | - Update Debt & Stock |
+                           |   Projections in DB   |
+                           | - Mark COMMITTED      |
+                           +-----------------------+
 ```
 
-> This is the intended high-level structure based on the project architecture. Keep only files that exist in your repository, and update this section if your actual structure differs.
+---
 
-## Setup
+## 💬 Command Reference Guide
 
-### Prerequisites
+| Command Syntax | Type | Example | Description |
+|---|---|---|---|
+| `SALE <amount>` | Transaction | `SALE 200` | Cash sale preview with 16-hex approval token |
+| `CREDIT <customer> <amount>` | Transaction | `CREDIT Sunita Deshmukh 500` | Credit sale; verifies limit, projects new balance |
+| `REPAY <customer> <amount>` | Transaction | `REPAY Sunita Deshmukh 200` | Debt repayment; projects balance reduction |
+| `STOCKIN <product> <qty> <unit>` | Transaction | `STOCKIN Sugar 10 kg` | Inbound inventory; increments stock projection |
+| `STOCKOUT <product> <qty> <unit>` | Transaction | `STOCKOUT Sugar 2 kg` | Inventory deduction; verifies stock availability |
+| `ORDER <customer> \| <item> <qty> <unit>` | Transaction | `ORDER Sunita \| Sugar 5 kg` | Customer order reservation |
+| `COMMIT <token>` | Execution | `COMMIT 3a7f8e210b4c9d12` | Burns token, commits to Google Sheets EventJournal |
+| `CANCEL <token>` | Invalidation | `CANCEL 3a7f8e210b4c9d12` | Cancels proposal, permanently burns token |
+| `EDIT <token> <new command>` | Supersede | `EDIT 3a7f8e210b4c9d12 SALE 250` | Burns old token, generates new draft preview |
+| `BALANCE [customer]` | Query | `BALANCE` or `BALANCE Sunita` | Live outstanding debtor balance from database |
+| `STOCK [product]` | Query | `STOCK` or `STOCK Sugar` | Live inventory counts and pricing |
+| `HELP` | Reference | `HELP` | Returns formatted command cheat sheet |
 
-Before running the bot, arrange the following:
+---
 
-- Python installed on your system
-- A Telegram bot token from [BotFather](https://t.me/BotFather)
-- A Google Cloud project with the Google Sheets API enabled
-- A Google spreadsheet prepared for the bot's stock and ledger data
-- Google credentials with access to that spreadsheet
-- Your Telegram user ID for the authorized-user allowlist
+## 🚀 Quick Start (Deploy in 3 Steps)
 
-### 1. Clone the repository
+### Step 1: Clone Repository & Launch n8n
 
 ```bash
-git clone <YOUR_REPOSITORY_URL>
-cd <YOUR_PROJECT_DIRECTORY>
+# Clone the repository
+git clone https://github.com/parthdahiphale6363-ui/team-minions.git
+cd team-minions
+
+# Copy environment variables
+cp .env.example .env
+
+# Launch n8n with 1-click Docker Compose
+docker compose up -d
+```
+Open **`http://localhost:5678`** in your browser.
+
+---
+
+### Step 2: Import Workflows & Seed Data Tables
+
+1. **Import Workflows**:
+   - In n8n, navigate to **Workflows ➔ Import from File**.
+   - Import all 4 production workflows from [`workflows/production/`](workflows/production/):
+     - `SSA-01-Telegram-Intake.json`
+     - `SSA-02B-Resolve-and-Store-Pending.json`
+     - `SSA-04-Commit-Validate-Write.json`
+     - `SSA-05-Cancel-or-Edit-Invalidate.json`
+
+2. **Initialize Data Tables with Templates**:
+   - Create the 5 required n8n Data Tables and import the ready-to-use CSV files from [`data-templates/`](data-templates/):
+     - `ssa_customers` ➔ [`data-templates/ssa_customers.csv`](data-templates/ssa_customers.csv)
+     - `ssa_products` ➔ [`data-templates/ssa_products.csv`](data-templates/ssa_products.csv)
+     - `ssa_ledger_state` ➔ [`data-templates/ssa_ledger_state.csv`](data-templates/ssa_ledger_state.csv)
+     - `ssa_pending_proposals` ➔ [`data-templates/ssa_pending_proposals.csv`](data-templates/ssa_pending_proposals.csv)
+     - `ssa_processed_updates` ➔ [`data-templates/ssa_processed_updates.csv`](data-templates/ssa_processed_updates.csv)
+
+3. **Set Up Google Sheets EventJournal**:
+   - Create a Google Sheet named **`Small_Shop_Assistant_Journal`** with a tab named **`EventJournal`**.
+   - Paste the header columns from [`data-templates/GoogleSheets_EventJournal_Template.csv`](data-templates/GoogleSheets_EventJournal_Template.csv).
+
+---
+
+### Step 3: Link Credentials & Activate
+
+1. In n8n **Credentials**, add:
+   - **Telegram API**: Add token from [@BotFather](https://t.me/BotFather).
+   - **Google Sheets OAuth2**: Connect your Google account.
+2. In `.env` (or workflow settings), set:
+   - `OWNER_TELEGRAM_ID`: Your personal numeric Telegram user ID (from [@userinfobot](https://t.me/userinfobot)).
+3. Activate **`SSA-01-Telegram-Intake`**.
+4. Open your Telegram bot and send: `STOCK` or `SALE 100`!
+
+---
+
+## 📂 Repository Directory Layout
+
+```
+team-minions/
+├── README.md                                    # Master project documentation
+├── LICENSE                                      # MIT License
+├── docker-compose.yml                           # 1-click n8n self-hosting environment
+├── .env.example                                 # Environment variable template
+├── .gitignore                                   # Standard ignores for credentials and temp files
+│
+├── workflows/                                   # Verified production & test workflows
+│   ├── production/                              # Hardened, audited production workflows
+│   │   ├── SSA-01-Telegram-Intake.json          # Entry webhook, auth filter, dedupe, queries
+│   │   ├── SSA-02B-Resolve-and-Store-Pending.json # Stock/debt validation, projections, crypto tokens
+│   │   ├── SSA-04-Commit-Validate-Write.json    # Concurrency-locked commit & Google Sheets append
+│   │   └── SSA-05-Cancel-or-Edit-Invalidate.json# Token burning & re-proposal chaining
+│   ├── testing-harness/                         # Standalone test harnesses
+│   │   ├── SSA-02-Prepare-Preview-Harness.json  # Offline preview validator
+│   │   └── SSA-03-Issue-Approval-Token-Harness.json # Standalone token issuer
+│   └── full-flow/                               # All-in-one / Monolithic workflow exports
+│       ├── FULL_FLOW_1.json                     # 103-node combined master workflow
+│       └── FULL_FLOW_PART_2.json                # Secondary subflow export
+│
+├── data-templates/                              # Ready-to-import table schemas and seed datasets
+│   ├── ssa_customers.csv                        # Sample kirana store customers with credit limits
+│   ├── ssa_products.csv                         # Sample inventory items with stock & pricing
+│   ├── ssa_ledger_state.csv                     # Ledger state tracking revision & journal ID
+│   ├── ssa_pending_proposals.csv                # Schema for pending proposals
+│   ├── ssa_processed_updates.csv                # Schema for update deduplication
+│   └── GoogleSheets_EventJournal_Template.csv   # Exact columns & sample rows for Google Sheets
+│
+├── screenshots/                                 # Interface & Live Demo Screenshots
+│   ├── telegram-home.png
+│   ├── outstanding-balances.png
+│   ├── outstanding-credit-summary.png
+│   └── payment-receipt.png
+│
+├── docs/                                        # Deep-dive Engineering Documentation
+│   ├── ARCHITECTURE.md                          # Detailed 6-stage lifecycle, circuit breakers, security
+│   ├── TESTING_GUIDE.md                         # 20-scenario adversarial test suite & demo script
+│   └── AUDIT_REPORT.md                          # Concurrency & race condition adversarial audit findings
+│
+├── enterprise-postgres/                         # ACID-Compliant PostgreSQL Migration Option
+│   └── init_schema.sql                          # Postgres DDL & commit_transaction stored procedure
+│
+├── tests/                                       # Automated test payloads
+│   └── test_payloads.json                       # Mock Telegram webhook payloads
+│
+└── Small_Shop_Assistant_Prompt_Pack.md          # Team MINIONS prompt pack
 ```
 
-Replace the placeholders with your repository URL and project directory.
+---
 
-### 2. Create and activate a virtual environment
+## 🛡️ Adversarial Audit & Structural Fixes
 
-**Windows (PowerShell):**
+During our adversarial security audit, four major system-level vulnerabilities were identified and resolved in the production workflows:
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
+| # | Vulnerability Identified | Production Fix Implemented | File Reference |
+|---|---|---|---|
+| **1** | **Concurrent Commit Race**: Twin webhooks with the same token caused dual Google Sheets writes | Implemented `exec_lock_id` with atomic reservation. Competitor aborted with `CONCURRENT_COMMIT_RACE_LOST`. | [`docs/AUDIT_REPORT.md`](docs/AUDIT_REPORT.md#1-vulnerability-1-concurrent-commit-race-condition) |
+| **2** | **False Success on Sheets Outage**: Google Sheets API 500/timeout falsely marked transactions `COMMITTED` | Configured `onError: continueErrorOutput`. Route diverts to `Mark WRITE_FAILED`; revision is never incremented. | [`docs/AUDIT_REPORT.md`](docs/AUDIT_REPORT.md#2-vulnerability-2-false-success-on-google-sheets-outage--timeout) |
+| **3** | **Stale Projections**: Debt & stock numbers remained un-updated in Data Tables after commit | Added direct customer debt and inventory stock adjustment nodes in `SSA-04`. | [`docs/AUDIT_REPORT.md`](docs/AUDIT_REPORT.md#3-vulnerability-3-stale-in-memory-projections-post-commit) |
+| **4** | **Static Placeholder Queries**: `BALANCE` & `STOCK` returned static "look at Google Sheets" text | Added real Data Table lookups in `SSA-01` providing individual and aggregate shop statistics. | [`docs/AUDIT_REPORT.md`](docs/AUDIT_REPORT.md#4-vulnerability-4-non-functional-balance-and-stock-commands) |
 
-**macOS / Linux:**
+---
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
+## 🧪 20-Scenario Test Suite & Live Demo
 
-### 3. Install dependencies
+The repository contains an exhaustive 20-scenario verification matrix covering schema validation, edge cases, expiry limits, and race conditions.
 
-If the repository contains a dependency file, install from it:
+For the full test matrix and step-by-step hackathon live demo script:
+👉 **See [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md)**
 
-```bash
-pip install -r requirements.txt
-```
+---
 
-If `requirements.txt` does not exist, install the dependencies documented by the source code and create a requirements file. Do not assume package names or versions without checking the imports used in your project.
+## 🏛️ Enterprise ACID: PostgreSQL Migration Blueprint
 
-### 4. Configure Google Sheets
+For deployments requiring enterprise-grade ACID transactions (preventing partial failures if n8n crashes mid-execution), use the pre-built PostgreSQL migration:
 
-1. Enable the Google Sheets API in your Google Cloud project.
-2. Create or select the spreadsheet used by the bot.
-3. Configure the credentials expected by the project's `sheets.py` module.
-4. Grant the configured Google identity access to the spreadsheet.
-5. Ensure the required Stock, Ledger, and customer-link data structures match what the code expects.
+1. Execute [`enterprise-postgres/init_schema.sql`](enterprise-postgres/init_schema.sql) in your PostgreSQL or Supabase instance.
+2. In `SSA-04`, replace the separate Data Table and Google Sheets nodes with a single PostgreSQL node executing:
+   ```sql
+   SELECT ssa.commit_transaction(
+     p_event_id => $1,
+     p_token_hash => $2,
+     p_exec_lock_id => $3,
+     p_journal_entry => $4::jsonb
+   );
+   ```
+This provides row-level pessimistic locking (`FOR UPDATE`) and atomic multi-table commit inside the database engine.
 
-Follow the authentication method implemented in your code; the exact credential filename and spreadsheet identifier variable may differ.
+---
 
-### 5. Configure environment variables
+## 👥 Team MINIONS
 
-Create a local `.env` file or configure environment variables in your hosting platform. Use the names expected by `config.py`.
-
-Example template (replace the names with the exact variables used by your code):
-
-```dotenv
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-AUTHORIZED_TELEGRAM_USER_IDS=your_telegram_user_id
-LOG_LEVEL=INFO
-```
-
-If your implementation uses a Google service-account JSON file or additional spreadsheet settings, configure those separately as required by `sheets.py`.
-
-**Never commit `.env`, bot tokens, private keys, or service-account credentials to GitHub.**
-
-### 6. Start the bot
-
-Run the entry point used by your project. If `main.py` is the configured entry point:
-
-```bash
-python main.py
-```
-
-Keep the process running and open the bot in Telegram to test it. Hosting is required if the bot must remain online continuously.
-
-## Configuration
-
-| Setting | Purpose |
-|---|---|
-| `TELEGRAM_BOT_TOKEN` | Authenticates the bot with Telegram |
-| `AUTHORIZED_TELEGRAM_USER_IDS` | Restricts shop operations to approved Telegram users |
-| `LOG_LEVEL` | Controls application logging verbosity |
-
-These names are based on the project's documented configuration module. Verify the expected format for authorized IDs and any additional settings in `config.py` before running the application.
-
-## Security and Data Integrity
-
-- **Confirm before saving:** Review sales, purchases, payments, adjustments, bulk stock entries, and reminders before committing them.
-- **Allowlist access:** Only configured Telegram user IDs should be able to operate the shop.
-- **Auditable corrections:** Correct a balance by adding a new ledger entry with a reason rather than editing old entries.
-- **Customer privacy:** Use opt-in reminders and allow customers to unsubscribe.
-- **Protect credentials:** Keep tokens and service-account secrets out of source control.
-- **Back up the spreadsheet:** Maintain regular backups of the Google Sheet.
-- **Handle partial failures carefully:** The documented flow writes to the ledger first. If the stock update then fails, inspect both sheets before retrying to avoid duplicate records.
-
-## Known Limitations and Next Steps
-
-The project presentation identifies these possible next steps:
-
-- Persist pending confirmations across bot restarts.
-- Host the bot so it stays online all day.
-- Back up the Google Sheet regularly.
-
-Additional production-readiness improvements may include automated tests, structured error reporting, duplicate-transaction protection, and recovery procedures for partial Google Sheets writes.
-
-## Contributing
-
-Contributions and suggestions are welcome.
-
-1. Fork the repository.
-2. Create a feature branch.
-3. Make your changes and test them.
-4. Commit with a clear message.
-5. Open a pull request describing the change.
-
-Please do not include credentials, customer data, or private spreadsheet contents in commits or issues.
-
-## License
-
-No license was specified in the project presentation. Add a `LICENSE` file and update this section before distributing the project publicly.
+- **Hackathon**: Technovision 2026: Zero Syntax
+- **Team**: MINIONS
+- **Repository**: [parthdahiphale6363-ui/team-minions](https://github.com/parthdahiphale6363-ui/team-minions)
+- **License**: [MIT](LICENSE)

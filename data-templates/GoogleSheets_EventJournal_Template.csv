@@ -1,0 +1,2 @@
+event_id,transaction_id,event_type,shop_id,customer_id,product_id,quantity,unit,amount,currency,original_event_id,payload_hash,actor_id,created_at,revision,status
+EVT-00000000-0000-0000-0000-000000000000,TXN-20261022-000001,GENESIS,SHOP-001,,,,,,INR,,e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855,SYSTEM,2026-10-22T00:00:00.000Z,0,COMMITTED

@@ -1,0 +1,1 @@
+proposal_id,event_id,shop_id,journal_id,event_type,payload_canonical,payload_hash,binding_hash,status,status_reason,source_update_id,source_message_id,chat_id,sender_id,source_text,token_hash,created_iso,updated_iso,expires_at,expires_epoch,ledger_revision

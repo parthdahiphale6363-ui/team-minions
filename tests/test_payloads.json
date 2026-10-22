@@ -1,0 +1,68 @@
+{
+  "description": "Mock Telegram webhook payloads for testing Small Shop Assistant endpoints",
+  "sample_payloads": {
+    "sale_preview": {
+      "update_id": 100001,
+      "message": {
+        "message_id": 1,
+        "from": { "id": 7973198714, "first_name": "Parth" },
+        "chat": { "id": 7973198714, "type": "private" },
+        "text": "SALE 200"
+      }
+    },
+    "credit_preview": {
+      "update_id": 100002,
+      "message": {
+        "message_id": 2,
+        "from": { "id": 7973198714, "first_name": "Parth" },
+        "chat": { "id": 7973198714, "type": "private" },
+        "text": "CREDIT Sunita Deshmukh 500"
+      }
+    },
+    "repay_preview": {
+      "update_id": 100003,
+      "message": {
+        "message_id": 3,
+        "from": { "id": 7973198714, "first_name": "Parth" },
+        "chat": { "id": 7973198714, "type": "private" },
+        "text": "REPAY Sunita Deshmukh 200"
+      }
+    },
+    "stockout_preview": {
+      "update_id": 100004,
+      "message": {
+        "message_id": 4,
+        "from": { "id": 7973198714, "first_name": "Parth" },
+        "chat": { "id": 7973198714, "type": "private" },
+        "text": "STOCKOUT Sugar 2 kg"
+      }
+    },
+    "balance_query": {
+      "update_id": 100005,
+      "message": {
+        "message_id": 5,
+        "from": { "id": 7973198714, "first_name": "Parth" },
+        "chat": { "id": 7973198714, "type": "private" },
+        "text": "BALANCE"
+      }
+    },
+    "stock_query": {
+      "update_id": 100006,
+      "message": {
+        "message_id": 6,
+        "from": { "id": 7973198714, "first_name": "Parth" },
+        "chat": { "id": 7973198714, "type": "private" },
+        "text": "STOCK"
+      }
+    },
+    "unauthorized_user": {
+      "update_id": 100007,
+      "message": {
+        "message_id": 7,
+        "from": { "id": 9999999999, "first_name": "Intruder" },
+        "chat": { "id": 9999999999, "type": "private" },
+        "text": "SALE 500"
+      }
+    }
+  }
+}

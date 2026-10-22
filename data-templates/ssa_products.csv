@@ -1,0 +1,7 @@
+product_id,name,unit,current_stock,unit_price,shop_id
+PROD-001,Sugar,kg,50,42,SHOP-001
+PROD-002,Cooking Oil,litre,20,145,SHOP-001
+PROD-003,Basmati Rice,kg,100,90,SHOP-001
+PROD-004,Toor Dal,kg,35,160,SHOP-001
+PROD-005,Wheat Flour,kg,80,38,SHOP-001
+PROD-006,Milk,litre,30,60,SHOP-001

@@ -1,0 +1,1264 @@
+{
+  "name": "SSA-04-Commit-Validate-Write",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "57f5b7a1-f6be-41a8-8fe5-dde8956bc76d",
+      "name": "Run Commit Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "c709f64a-04e8-46b4-9294-093ece28ba82",
+      "name": "Called from Intake",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "che0",
+              "name": "cmd",
+              "type": "object",
+              "value": "={{ (() => { const t = String($json.text ?? '').trim(); const fmt = /^COMMIT\\s+([0-9a-f]{16})$/i.test(t); const m = /^COMMIT\\s+([0-9a-f]{16})$/i.exec(t); const ownerId = $env.OWNER_TELEGRAM_ID || '7973198714'; const owner = String($json.sender_id ?? '') === String(ownerId); const token = m ? m[1].toLowerCase() : ''; const lockId = 'EXEC-' + ($execution ? $execution.id : '') + '-' + $now.toMillis() + '-' + Math.floor(Math.random() * 1000000); return { format_ok: fmt, owner_ok: owner, token: token, exec_lock_id: lockId, reasons: [owner ? '' : 'NOT_OWNER', fmt ? '' : 'BAD_COMMAND_FORMAT'].filter(x => x) }; })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "880b88cb-29be-4911-9e6a-1cff14ae8cd9",
+      "name": "Check Command and Owner",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cmd1",
+              "leftValue": "={{ $json.cmd.format_ok && $json.cmd.owner_ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "de011c22-b05e-4e94-b5b0-76cf421a2533",
+      "name": "Command and Owner OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.cmd.token }}",
+        "dataPropertyName": "token_hash"
+      },
+      "id": "e2a1add8-92e4-451b-b5f2-636ba9f3657c",
+      "name": "Hash Presented Token",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        720,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "token_hash",
+              "keyValue": "={{ $json.token_hash }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "7ec446ed-51fd-4bec-9f54-4726446214d0",
+      "name": "Lookup Proposal by Token",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        944,
+        208
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "27E7z49RMAy0liUe",
+          "cachedResultName": "ssa_ledger_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shop_id",
+              "keyValue": "={{ ($('Lookup Proposal by Token').all().map(i => i.json).filter(r => r.event_id)[0] ?? {}).shop_id ?? '__none__' }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "66c64c14-d36e-4e29-822f-80835956a5a7",
+      "name": "Lookup Ledger State",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1168,
+        208
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bui0",
+              "name": "binding_string",
+              "type": "string",
+              "value": "={{ (() => { const r = $('Lookup Proposal by Token').all().map(i => i.json).filter(x => x.event_id)[0]; return r ? [r.event_id, r.shop_id, r.journal_id, r.event_type, r.ledger_revision, r.expires_epoch, r.sender_id, r.payload_canonical].join('|') : 'NONE'; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7c10293c-4a2f-427a-b592-91a261b042fb",
+      "name": "Rebuild Binding",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1392,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.binding_string }}",
+        "dataPropertyName": "binding_hash_check"
+      },
+      "id": "100d279a-081c-4d21-a898-03de337dc3da",
+      "name": "Hash Rebuilt Binding",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        1616,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "val0",
+              "name": "verdict",
+              "type": "object",
+              "value": "={{ (() => { const rows = $('Lookup Proposal by Token').all().map(i => i.json).filter(r => r.event_id); const led = $('Lookup Ledger State').all().map(i => i.json).filter(r => r.journal_id); const who = $('Check Command and Owner').first().json; if (rows.length === 0) return { ok: false, reasons: ['TOKEN_NOT_FOUND_OR_ALREADY_USED'] }; if (rows.length > 1) return { ok: false, reasons: ['DUPLICATE_TOKEN_HASH'] }; const r = rows[0]; const reasons = []; if (r.status !== 'APPROVAL_ISSUED') reasons.push('NOT_APPROVABLE:' + r.status); if ($now.toMillis() > r.expires_epoch) reasons.push('EXPIRED'); if (String(r.sender_id) !== String(who.sender_id)) reasons.push('SENDER_MISMATCH'); if (led.length !== 1) reasons.push('LEDGER_STATE_UNAVAILABLE'); else if (led[0].revision !== r.ledger_revision || led[0].journal_id !== r.journal_id || led[0].shop_id !== r.shop_id) reasons.push('STALE_LEDGER_REVISION'); if ($json.binding_hash_check !== r.binding_hash) reasons.push('BINDING_MISMATCH'); return { ok: reasons.length === 0, reasons: reasons, event_id: r.event_id, proposal: r }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ca51ffe6-87a2-46ce-b255-59ef774ed3b9",
+      "name": "Validate Approval",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1840,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "app1",
+              "leftValue": "={{ $json.verdict.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ff01f3e0-aaa2-4bce-87fe-96faea4788a5",
+      "name": "Approval Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2064,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $json.verdict.event_id }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "=APPROVAL_ISSUED"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "COMMIT_VALIDATING",
+            "token_hash": "",
+            "status_reason": "={{ 'LOCKED:' + $('Check Command and Owner').first().json.cmd.exec_lock_id }}",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "token_hash",
+              "displayName": "token_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b6c50680-8fd6-4f30-9416-30b154e065fe",
+      "name": "Reserve Approval (consume token)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2288,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Validate Approval').first().json.verdict.event_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "455817b0-fd8b-416b-b2c4-4195170547b1",
+      "name": "Re-read Proposal",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2512,
+        144
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "con0",
+              "name": "reservation",
+              "type": "object",
+              "value": "={{ (() => { const rows = $input.all().map(i => i.json).filter(r => r.event_id); const lockId = $('Check Command and Owner').first().json.cmd.exec_lock_id; if (rows.length !== 1) return { ok: false, reasons: ['RESERVATION_ROW_COUNT:' + rows.length] }; const r = rows[0]; const reasons = []; if (r.status !== 'COMMIT_VALIDATING') reasons.push('RESERVATION_NOT_CONFIRMED:' + r.status); if (r.token_hash) reasons.push('TOKEN_NOT_CONSUMED'); if ($now.toMillis() > r.expires_epoch) reasons.push('EXPIRED_DURING_COMMIT'); if (r.status_reason !== 'LOCKED:' + lockId) reasons.push('CONCURRENT_COMMIT_RACE_LOST'); return { ok: reasons.length === 0, reasons: reasons, proposal: r }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8858b7a3-584f-4037-8934-bd2551719ec0",
+      "name": "Confirm Reservation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2736,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "res1",
+              "leftValue": "={{ $json.reservation.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0afe9bc3-165d-4323-b738-48d80187ad77",
+      "name": "Reservation Confirmed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2960,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "jrn0",
+              "name": "journal_entry",
+              "type": "object",
+              "value": "={{ (() => { const p = $('Confirm Reservation').first().json.reservation.proposal; const payload = JSON.parse(p.payload_canonical || '{}'); const newRev = Number(p.ledger_revision ?? 1) + 1; const nowIso = $now.toISO(); const txnId = 'TXN-' + $now.toFormat('yyyyMMdd-HHmmss'); return { event_id: p.event_id, transaction_id: txnId, event_type: p.event_type, shop_id: p.shop_id, customer_id: payload.customer_id ?? '', product_id: payload.product_id ?? '', quantity: payload.quantity ?? '', unit: payload.unit ?? '', amount: payload.amount ?? '', currency: payload.currency ?? 'INR', original_event_id: '', payload_hash: p.payload_hash, actor_id: p.sender_id, created_at: nowIso, revision: newRev, status: 'COMMITTED', payload_parsed: payload }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1f7a29e-647d-4c5b-9b4f-8e2b860b7312",
+      "name": "Prepare Journal Entry",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3184,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.GOOGLE_SHEETS_JOURNAL_ID || 'Small_Shop_Assistant_Journal' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "EventJournal"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_id": "={{ $json.journal_entry.event_id }}",
+            "transaction_id": "={{ $json.journal_entry.transaction_id }}",
+            "event_type": "={{ $json.journal_entry.event_type }}",
+            "shop_id": "={{ $json.journal_entry.shop_id }}",
+            "customer_id": "={{ $json.journal_entry.customer_id }}",
+            "product_id": "={{ $json.journal_entry.product_id }}",
+            "quantity": "={{ $json.journal_entry.quantity }}",
+            "unit": "={{ $json.journal_entry.unit }}",
+            "amount": "={{ $json.journal_entry.amount }}",
+            "currency": "={{ $json.journal_entry.currency }}",
+            "original_event_id": "={{ $json.journal_entry.original_event_id }}",
+            "payload_hash": "={{ $json.journal_entry.payload_hash }}",
+            "actor_id": "={{ $json.journal_entry.actor_id }}",
+            "created_at": "={{ $json.journal_entry.created_at }}",
+            "revision": "={{ $json.journal_entry.revision }}",
+            "status": "={{ $json.journal_entry.status }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "a92e105b-871d-4091-91a5-3a059c235efb",
+      "name": "Append to Google Sheets Journal",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3408,
+        80
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "googleSheetsAccount",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "27E7z49RMAy0liUe",
+          "cachedResultName": "ssa_ledger_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shop_id",
+              "keyValue": "={{ $('Prepare Journal Entry').first().json.journal_entry.shop_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "revision": "={{ $('Prepare Journal Entry').first().json.journal_entry.revision }}",
+            "last_event_id": "={{ $('Prepare Journal Entry').first().json.journal_entry.event_id }}",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "revision",
+              "displayName": "revision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_event_id",
+              "displayName": "last_event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e492b157-41ab-48e0-bbd2-81781297e682",
+      "name": "Increment Ledger Revision",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3632,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "g8h9kz7RIHrPr1Ul",
+          "cachedResultName": "ssa_customers"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "customer_id",
+              "keyValue": "={{ $('Prepare Journal Entry').first().json.journal_entry.customer_id || '__none__' }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "1d8b94cc-192a-4bc4-93e1-cf289410ea82",
+      "name": "Lookup Customer for Projection",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3856,
+        -48
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "g8h9kz7RIHrPr1Ul",
+          "cachedResultName": "ssa_customers"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "customer_id",
+              "keyValue": "={{ $('Prepare Journal Entry').first().json.journal_entry.customer_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "current_debt": "={{ (() => { const j = $('Prepare Journal Entry').first().json.journal_entry; const rows = $('Lookup Customer for Projection').all().map(i => i.json).filter(r => r.customer_id); const cur = rows.length ? Number(rows[0].current_debt ?? 0) : 0; const amt = Number(j.amount ?? 0); if (j.event_type === 'CREDIT_SALE') return cur + amt; if (j.event_type === 'REPAYMENT') return Math.max(0, cur - amt); return cur; })() }}"
+          },
+          "schema": [
+            {
+              "id": "current_debt",
+              "displayName": "current_debt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7fa8401e-081c-4b51-9ef2-5bc312891d01",
+      "name": "Update Customer Debt Projection",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4080,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "MUfWELODmJP52r30",
+          "cachedResultName": "ssa_products"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "product_id",
+              "keyValue": "={{ $('Prepare Journal Entry').first().json.journal_entry.product_id || '__none__' }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "2d8f94cc-192a-4bc4-93e1-cf289410ea83",
+      "name": "Lookup Product for Projection",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4304,
+        -48
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "MUfWELODmJP52r30",
+          "cachedResultName": "ssa_products"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "product_id",
+              "keyValue": "={{ $('Prepare Journal Entry').first().json.journal_entry.product_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "current_stock": "={{ (() => { const j = $('Prepare Journal Entry').first().json.journal_entry; const rows = $('Lookup Product for Projection').all().map(i => i.json).filter(r => r.product_id); const cur = rows.length ? Number(rows[0].current_stock ?? 0) : 0; const qty = Number(j.quantity ?? 0); if (j.event_type === 'STOCK_IN') return cur + qty; if (['STOCK_OUT', 'ACCEPTED_ORDER'].includes(j.event_type)) return Math.max(0, cur - qty); return cur; })() }}"
+          },
+          "schema": [
+            {
+              "id": "current_stock",
+              "displayName": "current_stock",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8fa8401e-081c-4b51-9ef2-5bc312891d02",
+      "name": "Update Product Stock Projection",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4528,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Prepare Journal Entry').first().json.journal_entry.event_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "COMMITTED",
+            "status_reason": "Committed to EventJournal",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "47f4d049-9ec9-42aa-b4f9-9fe1eb21d2cb",
+      "name": "Mark COMMITTED",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4752,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "okR0",
+              "name": "result",
+              "type": "string",
+              "value": "TRANSACTION_COMMITTED"
+            },
+            {
+              "id": "okR1",
+              "name": "committed",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "id": "okR2",
+              "name": "event_id",
+              "type": "string",
+              "value": "={{ $('Prepare Journal Entry').first().json.journal_entry.event_id }}"
+            },
+            {
+              "id": "okR3",
+              "name": "message",
+              "type": "string",
+              "value": "={{ (() => { const j = $('Prepare Journal Entry').first().json.journal_entry; const lines = [ '✅ <b>TRANSACTION COMMITTED TO JOURNAL</b>', '───────────────────────────', '<b>Event ID:</b> <code>' + j.event_id + '</code>', '<b>Transaction ID:</b> <code>' + j.transaction_id + '</code>', '<b>Type:</b> ' + j.event_type ]; if (j.customer_id) { lines.push('<b>Customer ID:</b> <code>' + j.customer_id + '</code>'); } if (j.product_id) { lines.push('<b>Product ID:</b> <code>' + j.product_id + '</code>'); } if (j.amount) { lines.push('<b>Amount:</b> Rs ' + j.amount); } if (j.quantity) { lines.push('<b>Quantity:</b> ' + j.quantity + ' ' + j.unit); } lines.push('<b>Ledger Revision:</b> ' + j.revision + ' (Incremented)'); lines.push('<b>Status:</b> COMMITTED'); lines.push('───────────────────────────'); lines.push('🔒 <i>Verified journal write. Token permanently burned.</i>'); return lines.join('\\n'); })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e20c6820-2a3a-432a-bbce-e68e6f7099ed",
+      "name": "Build Validated Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4976,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nWMqmuvL05ggMMHi",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Prepare Journal Entry').first().json.journal_entry.event_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "WRITE_FAILED",
+            "status_reason": "Google Sheets append failed; transaction aborted",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5f9a401e-081c-4b51-9ef2-5bc312891d09",
+      "name": "Mark WRITE_FAILED",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3632,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "wf0",
+              "name": "result",
+              "type": "string",
+              "value": "WRITE_FAILED"
+            },
+            {
+              "id": "wf1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "wf2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ '❌ <b>COMMIT FAILED: WRITE UNVERIFIED</b>\\n• Google Sheets EventJournal append failed or timed out.\\n• <b>STATUS UNKNOWN / ABORTED</b>: Ledger revision unchanged.\\n• Nothing was committed. Event ID: ' + $('Prepare Journal Entry').first().json.journal_entry.event_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6f9a401e-081c-4b51-9ef2-5bc312891d10",
+      "name": "Build Write Failed Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3856,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "rej0",
+              "name": "result",
+              "type": "string",
+              "value": "COMMIT_REJECTED"
+            },
+            {
+              "id": "rej1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "rej2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ '❌ <b>COMMIT REJECTED - NOTHING SAVED</b>\\n• ' + (($json.verdict ?? $json.reservation ?? $json.cmd).reasons ?? ['UNKNOWN']).join('\\n• ') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a622029a-8e09-4d45-8066-3e415ee97acd",
+      "name": "Build Rejection",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2064,
+        352
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run Commit Test": {
+      "main": [
+        [
+          {
+            "node": "Check Command and Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called from Intake": {
+      "main": [
+        [
+          {
+            "node": "Check Command and Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Command and Owner": {
+      "main": [
+        [
+          {
+            "node": "Command and Owner OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Command and Owner OK?": {
+      "main": [
+        [
+          {
+            "node": "Hash Presented Token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Presented Token": {
+      "main": [
+        [
+          {
+            "node": "Lookup Proposal by Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Proposal by Token": {
+      "main": [
+        [
+          {
+            "node": "Lookup Ledger State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Ledger State": {
+      "main": [
+        [
+          {
+            "node": "Rebuild Binding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rebuild Binding": {
+      "main": [
+        [
+          {
+            "node": "Hash Rebuilt Binding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Rebuilt Binding": {
+      "main": [
+        [
+          {
+            "node": "Validate Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Approval": {
+      "main": [
+        [
+          {
+            "node": "Approval Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval Valid?": {
+      "main": [
+        [
+          {
+            "node": "Reserve Approval (consume token)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reserve Approval (consume token)": {
+      "main": [
+        [
+          {
+            "node": "Re-read Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-read Proposal": {
+      "main": [
+        [
+          {
+            "node": "Confirm Reservation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm Reservation": {
+      "main": [
+        [
+          {
+            "node": "Reservation Confirmed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservation Confirmed?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Journal Entry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Journal Entry": {
+      "main": [
+        [
+          {
+            "node": "Append to Google Sheets Journal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Google Sheets Journal": {
+      "main": [
+        [
+          {
+            "node": "Increment Ledger Revision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark WRITE_FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Ledger Revision": {
+      "main": [
+        [
+          {
+            "node": "Lookup Customer for Projection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Customer for Projection": {
+      "main": [
+        [
+          {
+            "node": "Update Customer Debt Projection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Customer Debt Projection": {
+      "main": [
+        [
+          {
+            "node": "Lookup Product for Projection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Product for Projection": {
+      "main": [
+        [
+          {
+            "node": "Update Product Stock Projection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Product Stock Projection": {
+      "main": [
+        [
+          {
+            "node": "Mark COMMITTED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark COMMITTED": {
+      "main": [
+        [
+          {
+            "node": "Build Validated Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark WRITE_FAILED": {
+      "main": [
+        [
+          {
+            "node": "Build Write Failed Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "865c0d74-3e17-4405-9462-5bb5cbebc7ef",
+  "meta": {
+    "instanceId": "6ace28077ab79676f89792b4efff45f954dc47e55a52ae057ab4031d0a81e358"
+  },
+  "id": "qohnnpf1Lc4eQoC0",
+  "tags": []
+}

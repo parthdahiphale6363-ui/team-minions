@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: small-shop-assistant-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=Asia/Kolkata
+      - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=168
+      # Shop Assistant Environment Defaults
+      - SHOP_ID=SHOP-001
+      - OWNER_TELEGRAM_ID=${OWNER_TELEGRAM_ID:-7973198714}
+      - GOOGLE_SHEETS_JOURNAL_ID=${GOOGLE_SHEETS_JOURNAL_ID:-Small_Shop_Assistant_Journal}
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:
+    driver: local

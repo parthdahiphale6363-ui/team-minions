@@ -1,0 +1,5023 @@
+{
+  "name": "SSA-05-Cancel-or-Edit-Invalidate",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "864d1d0a-da34-4e6a-8f5f-b647897a2ddb",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        -32,
+        224
+      ],
+      "webhookId": "cd90b126-7384-46b0-b4aa-49ae9a373e12",
+      "credentials": {
+        "telegramApi": {
+          "id": "2NSHqEEZBacfmAkG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "source_update_id",
+              "type": "string",
+              "value": "={{ String($json.update_id) }}"
+            },
+            {
+              "id": "a2",
+              "name": "source_message_id",
+              "type": "string",
+              "value": "={{ String($json.message.message_id) }}"
+            },
+            {
+              "id": "a3",
+              "name": "sender_id",
+              "type": "string",
+              "value": "={{ String($json.message.from.id) }}"
+            },
+            {
+              "id": "a4",
+              "name": "chat_id",
+              "type": "string",
+              "value": "={{ String($json.message.chat.id) }}"
+            },
+            {
+              "id": "a5",
+              "name": "text",
+              "type": "string",
+              "value": "={{ $json.message.text ?? \"\" }}"
+            },
+            {
+              "id": "a6",
+              "name": "owner_telegram_id",
+              "type": "string",
+              "value": "7973198714"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5c9d7097-38cf-48bb-a9d7-faf0a416f305",
+      "name": "Extract Update Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        336,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.sender_id }}",
+              "rightValue": "={{ $json.owner_telegram_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2e2a4646-0734-4a52-9bc4-16cec7dfc7b3",
+      "name": "Is Authorized Owner?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "pc1",
+              "name": "parsed",
+              "type": "object",
+              "value": "={{ (() => { const t = String($json.text || '').trim(); const w = t.split(' ').filter(x => x); const cmd = (w[0] || '').toUpperCase().split('/').join(''); const rest = w.slice(1); const num = s => { const n = Number(String(s).replace(/[₹,]/g, '')); return String(s).trim() !== '' && isFinite(n) ? n : String(s); }; const tail = arr => ({ product_name: arr.slice(0, -2).join(' '), quantity: num(arr[arr.length - 2]), unit: String(arr[arr.length - 1]).toLowerCase() }); if (cmd === 'SALE' && rest.length === 1) return { kind: 'TRANSACTION', event_type: 'SALE', amount: num(rest[0]) }; if (cmd === 'CREDIT' && t.indexOf('|') > 0) { const p = t.slice(t.indexOf(' ') + 1).split('|'); const pw = p.length === 2 ? p[1].trim().split(' ').filter(x => x) : []; if (p.length === 2 && p[0].trim() && pw.length >= 4) return Object.assign({ kind: 'TRANSACTION', event_type: 'CREDIT_SALE', customer_name: p[0].trim(), amount: num(pw[pw.length - 1]) }, tail(pw.slice(0, -1))); } if ((cmd === 'CREDIT' || cmd === 'REPAY') && rest.length >= 2) return { kind: 'TRANSACTION', event_type: cmd === 'CREDIT' ? 'CREDIT_SALE' : 'REPAYMENT', customer_name: rest.slice(0, -1).join(' '), amount: num(rest[rest.length - 1]) }; if ((cmd === 'STOCKIN' || cmd === 'STOCKOUT') && rest.length >= 3) return Object.assign({ kind: 'TRANSACTION', event_type: cmd === 'STOCKIN' ? 'STOCK_IN' : 'STOCK_OUT' }, tail(rest)); if (cmd === 'ORDER') { const p = t.slice(t.indexOf(' ') + 1).split('|'); const pw = p.length === 2 ? p[1].trim().split(' ').filter(x => x) : []; if (p.length === 2 && p[0].trim() && pw.length >= 3 && t.indexOf(' ') > 0) return Object.assign({ kind: 'TRANSACTION', event_type: 'ACCEPTED_ORDER', customer_name: p[0].trim() }, tail(pw)); } if (['BALANCE', 'STOCK', 'HELP'].includes(cmd)) return { kind: 'QUERY', query_type: cmd }; if (cmd === 'APPROVE') return { kind: 'APPROVE', event_id: rest.length === 1 && /^EVT-[A-Za-z0-9]{8,64}$/.test(rest[0]) ? rest[0] : '' }; if (cmd === 'COMMIT') return { kind: 'COMMIT' }; if (cmd === 'CANCEL' || cmd === 'EDIT') return { kind: 'CANCEL_EDIT' }; return { kind: 'UNSUPPORTED' }; })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "2eef7fe7-db29-47f8-ac9e-5d138f792a1e",
+      "name": "Parse Command",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1152,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "rt1",
+                    "leftValue": "={{ $json.parsed.kind }}",
+                    "rightValue": "TRANSACTION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Transaction"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "rt2",
+                    "leftValue": "={{ $json.parsed.kind }}",
+                    "rightValue": "QUERY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Read-only query"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "rt3",
+                    "leftValue": "={{ $json.parsed.kind }}",
+                    "rightValue": "COMMIT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Commit"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "rt4",
+                    "leftValue": "={{ $json.parsed.kind }}",
+                    "rightValue": "CANCEL_EDIT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Cancel or edit"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "rt5",
+                    "leftValue": "={{ $json.parsed.kind }}",
+                    "rightValue": "APPROVE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Approve"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Unsupported"
+        }
+      },
+      "id": "1bd32cd5-4978-450a-8a7f-1cd07af201ad",
+      "name": "Route Command",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1376,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify(Object.fromEntries(Object.entries({ shop_id: 'SHOP-001', event_type: $json.parsed.event_type, customer_name: $json.parsed.customer_name, product_name: $json.parsed.product_name, amount: $json.parsed.amount, quantity: $json.parsed.quantity, unit: $json.parsed.unit, source_update_id: $json.source_update_id, source_message_id: $json.source_message_id, sender_id: $json.sender_id, chat_id: $json.chat_id, source_text: $json.text }).filter(([k, v]) => v !== undefined && v !== null))) }}",
+        "options": {}
+      },
+      "id": "b7a36199-8bf1-4a2b-bb88-73eb3b68e53a",
+      "name": "Build Prepare Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1152,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "3fCzs76LXUPNpI1Y",
+          "cachedResultName": "ssa_processed_updates"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "source_update_id",
+              "keyValue": "={{ $('Build Prepare Input').first().json.source_update_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "aa00d792-979a-4937-95b8-f86b06caab3c",
+      "name": "Lookup Processed Update",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1904,
+        224
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dd1",
+              "name": "dedupe",
+              "type": "object",
+              "value": "={{ (() => { const rows = $input.all().map(i => i.json).filter(r => r.source_update_id); const now = $now.toMillis(); if (rows.length === 0) return { proceed: true, action: 'PROCESS', reason: 'New update ID' }; if (rows.some(r => r.status === 'PROCESSED')) return { proceed: false, action: 'SKIP', reason: 'Already processed' }; const live = rows.some(r => r.status === 'RECEIVED' && (now - Date.parse(r.received_iso)) < 120000); if (live) return { proceed: false, action: 'SKIP', reason: 'Still in progress (claimed under 120 s ago)' }; return { proceed: true, action: 'RETRY', reason: 'Previous attempt was ' + rows[0].status + ' or stale' }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b62101d4-c798-4146-83f3-2432dc2a401a",
+      "name": "Decide Duplicate",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2128,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "sp1",
+              "leftValue": "={{ $json.dedupe.proceed }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6f59cdd8-3c91-4b82-891d-4189ae926f8e",
+      "name": "Process This Update?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2352,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "3fCzs76LXUPNpI1Y",
+          "cachedResultName": "ssa_processed_updates"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "source_update_id",
+              "keyValue": "={{ $('Build Prepare Input').first().json.source_update_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "source_update_id": "={{ $('Build Prepare Input').first().json.source_update_id }}",
+            "source_message_id": "={{ $('Build Prepare Input').first().json.source_message_id }}",
+            "sender_id": "={{ $('Build Prepare Input').first().json.sender_id }}",
+            "status": "RECEIVED",
+            "received_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "source_update_id",
+              "displayName": "source_update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_message_id",
+              "displayName": "source_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sender_id",
+              "displayName": "sender_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "received_iso",
+              "displayName": "received_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c3445585-85a4-4286-b337-fbc78f716171",
+      "name": "Claim Update (RECEIVED)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2576,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify($('Build Prepare Input').first().json) }}",
+        "options": {}
+      },
+      "id": "46cabb62-7ba4-4873-a60b-7f6ae8c594a6",
+      "name": "Restore Prepare Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2800,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Cm6fT6PVUi9UpOsZ",
+          "cachedResultName": "SSA-02B-Resolve-and-Store-Pending"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "272414e8-17b3-41a6-bf76-ce46a1839b16",
+      "name": "Prepare Proposal (SSA-02B)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1376,
+        -128
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Build Prepare Input').first().json.chat_id }}",
+        "text": "={{ String($json.message).replace(/&(?!(?:amp|lt|gt|quot|#[0-9]+);)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "b33b31cc-d0c7-40dd-ac16-94cf2db7126d",
+      "name": "Reply Preview",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1600,
+        -128
+      ],
+      "webhookId": "a94a7a1a-7a75-4e38-b69d-77cb5305fee7",
+      "credentials": {
+        "telegramApi": {
+          "id": "2NSHqEEZBacfmAkG",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "3fCzs76LXUPNpI1Y",
+          "cachedResultName": "ssa_processed_updates"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "source_update_id",
+              "keyValue": "={{ $('Build Prepare Input').first().json.source_update_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "PROCESSED"
+          },
+          "schema": [
+            {
+              "id": "source_update_id",
+              "displayName": "source_update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_message_id",
+              "displayName": "source_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sender_id",
+              "displayName": "sender_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "received_iso",
+              "displayName": "received_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8cb8728a-23cc-4ab7-b678-d11b91874655",
+      "name": "Mark Update PROCESSED",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3472,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "3fCzs76LXUPNpI1Y",
+          "cachedResultName": "ssa_processed_updates"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "source_update_id",
+              "keyValue": "={{ $('Build Prepare Input').first().json.source_update_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "FAILED"
+          },
+          "schema": [
+            {
+              "id": "source_update_id",
+              "displayName": "source_update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_message_id",
+              "displayName": "source_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sender_id",
+              "displayName": "sender_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "received_iso",
+              "displayName": "received_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9f308d6b-f030-44f1-bba7-61caa7134861",
+      "name": "Mark Update FAILED",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3472,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Build Prepare Input').first().json.chat_id }}",
+        "text": "Preparing the preview failed. Nothing was committed. Please send the command again. A pending proposal from this attempt, if one was stored, expires in 90 seconds.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "e0198bd4-375f-4dd8-8308-65c9d48fcf64",
+      "name": "Reply Preparation Failed",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3696,
+        320
+      ],
+      "webhookId": "5b192ffa-07c2-4654-8648-c0e06467c2f8",
+      "credentials": {
+        "telegramApi": {
+          "id": "2NSHqEEZBacfmAkG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ String($json.parsed.query_type === 'HELP' ? 'Supported commands (preview only, nothing is committed): SALE 200 | CREDIT Sunita Deshmukh 500 | REPAY Sunita Deshmukh 200 | STOCKIN Sugar 10 kg | STOCKOUT Sugar 2 kg | ORDER Sunita Deshmukh | Sugar 5 kg' : 'Read-only query ' + $json.parsed.query_type + ' recognised. Balance and stock lookups are not built yet. No proposal was created and nothing was changed.').replace(/&(?!(?:amp|lt|gt|quot|#[0-9]+);)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "7a8fe976-f912-4f13-b7e0-101f1fb6b383",
+      "name": "Reply Read-Only Query",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1792,
+        400
+      ],
+      "webhookId": "db2f289d-c88e-4a98-bf55-442b6809f896",
+      "credentials": {
+        "telegramApi": {
+          "id": "2NSHqEEZBacfmAkG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "che0",
+              "name": "cmd",
+              "type": "object",
+              "value": "={{ (() => { const t = String($json.text ?? ''); const fmt = /^COMMIT [0-9a-f]{16}$/.test(t); const owner = String($json.sender_id ?? '') === '7973198714'; return { format_ok: fmt, owner_ok: owner, token: fmt ? t.slice(7) : '', reasons: [owner ? '' : 'NOT_OWNER', fmt ? '' : 'BAD_COMMAND_FORMAT'].filter(x => x) }; })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "b28a0789-1051-48f5-9ac1-c2bb08737099",
+      "name": "Check Command and Owner",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2880,
+        1792
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cmd1",
+              "leftValue": "={{ $json.cmd.format_ok && $json.cmd.owner_ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "01b33b03-7410-46c7-a27d-cb8599808f43",
+      "name": "Command and Owner OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3104,
+        1792
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.cmd.token }}",
+        "dataPropertyName": "token_hash"
+      },
+      "id": "f02dd9a9-499b-4935-9725-3b6a9393b647",
+      "name": "Hash Presented Token",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        3392,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Sj3toFQLHrjZZIja",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "token_hash",
+              "keyValue": "={{ $json.token_hash }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "78191a21-7ad9-4643-9a13-ae57cea3d5bd",
+      "name": "Lookup Proposal by Token",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3616,
+        1568
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select shop_id, journal_id, revision::int as revision, last_event_id from ssa.ledger_state where shop_id = $1;",
+        "options": {
+          "queryReplacement": "={{ [ ($('Lookup Proposal by Token').all().map(i => i.json).filter(r => r.event_id)[0] ?? {}).shop_id ?? '__none__' ] }}"
+        }
+      },
+      "id": "2bf54e7d-6538-4b38-a4d7-f2050436a414",
+      "name": "Lookup Ledger State1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3840,
+        1568
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "jBG1I6njPLWXZs33",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bui0",
+              "name": "binding_string",
+              "type": "string",
+              "value": "={{ (() => { const r = $('Lookup Proposal by Token').all().map(i => i.json).filter(x => x.event_id)[0]; return r ? [r.event_id, r.shop_id, r.journal_id, r.event_type, r.ledger_revision, r.expires_epoch, r.sender_id, r.payload_canonical].join('|') : 'NONE'; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2fc27200-dcf3-4674-be83-01bea74712df",
+      "name": "Rebuild Binding",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4064,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.binding_string }}",
+        "dataPropertyName": "binding_hash_check"
+      },
+      "id": "4c2f9f80-997e-4315-8f05-291e14ce9658",
+      "name": "Hash Rebuilt Binding",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        4288,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "val0",
+              "name": "verdict",
+              "type": "object",
+              "value": "={{ (() => { const rows = $('Lookup Proposal by Token').all().map(i => i.json).filter(r => r.event_id); const led = $('Lookup Ledger State1').all().map(i => i.json).filter(r => r.journal_id); const who = $('Check Command and Owner').first().json; if (rows.length === 0) return { ok: false, reasons: ['TOKEN_NOT_FOUND_OR_ALREADY_USED'] }; if (rows.length > 1) return { ok: false, reasons: ['DUPLICATE_TOKEN_HASH'] }; const r = rows[0]; const reasons = []; if (r.status !== 'APPROVAL_ISSUED') reasons.push('NOT_APPROVABLE:' + r.status); if ($now.toMillis() > r.expires_epoch) reasons.push('EXPIRED'); if (String(r.sender_id) !== String(who.sender_id)) reasons.push('SENDER_MISMATCH'); if (led.length !== 1) reasons.push('LEDGER_STATE_UNAVAILABLE'); else if (led[0].revision !== r.ledger_revision || led[0].journal_id !== r.journal_id || led[0].shop_id !== r.shop_id) reasons.push('STALE_LEDGER_REVISION'); if ($json.binding_hash_check !== r.binding_hash) reasons.push('BINDING_MISMATCH'); return { ok: reasons.length === 0, reasons: reasons, event_id: r.event_id }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "99965243-a4f6-40b7-b8fa-b5f741b58ebe",
+      "name": "Validate Approval",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4512,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "app1",
+              "leftValue": "={{ $json.verdict.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "52c0c0d7-675d-46b8-a0e0-1a24e69599a7",
+      "name": "Approval Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4736,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Sj3toFQLHrjZZIja",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $json.verdict.event_id }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "=APPROVAL_ISSUED"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "COMMIT_VALIDATING",
+            "token_hash": "",
+            "status_reason": "Token consumed; re-validating",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "token_hash",
+              "displayName": "token_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "92fb0d4b-3f40-462f-aa6c-4f8514280113",
+      "name": "Reserve Approval (consume token)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3968,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Sj3toFQLHrjZZIja",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Validate Approval').first().json.verdict.event_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "c961c91f-fa5c-45a6-a82f-b2d61120c870",
+      "name": "Re-read Proposal",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4192,
+        1472
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "con0",
+              "name": "reservation",
+              "type": "object",
+              "value": "={{ (() => { const rows = $input.all().map(i => i.json).filter(r => r.event_id); if (rows.length !== 1) return { ok: false, reasons: ['RESERVATION_ROW_COUNT:' + rows.length] }; const r = rows[0]; const reasons = []; if (r.status !== 'COMMIT_VALIDATING') reasons.push('RESERVATION_NOT_CONFIRMED:' + r.status); if (r.token_hash) reasons.push('TOKEN_NOT_CONSUMED'); if ($now.toMillis() > r.expires_epoch) reasons.push('EXPIRED_DURING_COMMIT'); return { ok: reasons.length === 0, reasons: reasons }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "982b2692-b891-43be-8c8b-67f0eb9f5fe4",
+      "name": "Confirm Reservation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4416,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "res1",
+              "leftValue": "={{ $json.reservation.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fd0835a1-715d-4915-868f-5225e92516ea",
+      "name": "Reservation Confirmed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4640,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bca0",
+              "name": "shop_id",
+              "type": "string",
+              "value": "={{ $('Re-read Proposal').first().json.shop_id }}"
+            },
+            {
+              "id": "bca1",
+              "name": "event_id",
+              "type": "string",
+              "value": "={{ $('Re-read Proposal').first().json.event_id }}"
+            },
+            {
+              "id": "bca2",
+              "name": "commit_args",
+              "type": "string",
+              "value": "={{ (() => { const r = $('Re-read Proposal').first().json; return JSON.stringify({ shop_id: r.shop_id, journal_id: r.journal_id, event_id: r.event_id, expected_revision: r.ledger_revision, payload_canonical: r.payload_canonical, payload_hash: r.payload_hash, sender_id: String(r.sender_id), source_update_id: r.source_update_id, source_message_id: r.source_message_id, approval_expires_epoch: r.expires_epoch }); })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d3f391cd-e54f-489a-9685-7edee4371175",
+      "name": "Build Commit Args",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4448,
+        1312
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select ssa.commit_event($1::jsonb) as result;",
+        "options": {
+          "queryReplacement": "={{ [ $json.commit_args ] }}"
+        }
+      },
+      "id": "050b9639-b984-4927-a5dc-29c894a5546f",
+      "name": "Commit Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4624,
+        176
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "jBG1I6njPLWXZs33",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cl0",
+              "name": "commit",
+              "type": "object",
+              "value": "={{ (() => { const x = $json.result; if (!x || typeof x !== 'object' || !x.status) return { outcome: 'UNCERTAIN', reasons: ['NO_RESULT'] }; if ((x.status === 'COMMITTED' || x.status === 'ALREADY_COMMITTED') && x.committed === true) return { outcome: 'CONFIRMED', status: x.status, revision: x.revision, event_id: x.event_id }; if (x.status === 'REJECTED' && x.committed === false) return { outcome: 'REJECTED', reasons: x.reasons ?? ['UNKNOWN'] }; return { outcome: 'UNCERTAIN', reasons: ['UNEXPECTED_RESULT'] }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d529d324-e73c-47a1-8142-88634a0905f0",
+      "name": "Classify Commit Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4848,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "c0",
+                    "leftValue": "={{ $json.commit.outcome }}",
+                    "rightValue": "CONFIRMED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Confirmed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "c1",
+                    "leftValue": "={{ $json.commit.outcome }}",
+                    "rightValue": "REJECTED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rejected"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Uncertain"
+        }
+      },
+      "id": "1bc4b238-96ad-4404-a35a-82281e10aed3",
+      "name": "Commit Outcome?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        5072,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Sj3toFQLHrjZZIja",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Build Commit Args').first().json.event_id }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "=COMMIT_VALIDATING"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "COMMITTED",
+            "status_reason": "Committed in Postgres",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bc066072-fe75-4399-a34d-9e58d439f1ac",
+      "name": "Mark COMMITTED (cache)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        6640,
+        -144
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bc0",
+              "name": "result",
+              "type": "string",
+              "value": "COMMITTED"
+            },
+            {
+              "id": "bc1",
+              "name": "committed",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "id": "bc2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ (() => { const c = (() => { const a = $('Classify Retry').isExecuted ? $('Classify Retry') : ($('Classify Recheck').isExecuted ? $('Classify Recheck') : $('Classify Commit Result')); return a.first().json.commit; })(); const e = $('Build Commit Args').first().json.event_id; return c.status === 'ALREADY_COMMITTED' ? 'Already committed ' + e + ' (revision ' + c.revision + '). Nothing was applied twice.' : 'Committed ' + e + ' at ledger revision ' + c.revision + '.'; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c75bca62-63b9-4259-a075-ece3e71bd391",
+      "name": "Build Committed Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6864,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extract Update Fields').first().json.chat_id }}",
+        "text": "={{ String($json.message).replace(/&(?!(?:amp|lt|gt|quot|#[0-9]+);)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "21019091-7968-4dfd-b289-0eabb5b519a1",
+      "name": "Reply Commit Validated",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        7136,
+        32
+      ],
+      "webhookId": "d413c6a0-0d1e-4c91-ad19-5398cbe3a19b",
+      "credentials": {
+        "telegramApi": {
+          "id": "2NSHqEEZBacfmAkG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Sj3toFQLHrjZZIja",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Build Commit Args').first().json.event_id }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "=COMMIT_VALIDATING"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "COMMIT_REJECTED",
+            "status_reason": "={{ (((() => { const a = $('Classify Retry').isExecuted ? $('Classify Retry') : $('Classify Commit Result'); return a.first().json.commit; })()).reasons ?? ['UNKNOWN']).join(', ') }}",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ce272cc8-338c-4d3f-9ad0-6d75ad24acff",
+      "name": "Mark COMMIT_REJECTED",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        6640,
+        48
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bj0",
+              "name": "result",
+              "type": "string",
+              "value": "COMMIT_REJECTED"
+            },
+            {
+              "id": "bj1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "bj2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'COMMIT rejected: ' + (((() => { const a = $('Classify Retry').isExecuted ? $('Classify Retry') : $('Classify Commit Result'); return a.first().json.commit; })()).reasons ?? ['UNKNOWN']).join(', ') + '. Nothing was committed. The token is consumed; propose again.' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1f816082-f6ae-4497-911c-55061ad2580e",
+      "name": "Build Commit Rejection",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6864,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extract Update Fields').first().json.chat_id }}",
+        "text": "={{ String($json.message).replace(/&(?!(?:amp|lt|gt|quot|#[0-9]+);)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "78ad260c-9448-46e1-ab7f-07120081bee0",
+      "name": "Reply Commit Rejected",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        7168,
+        192
+      ],
+      "webhookId": "5f2204f8-e25f-4ea4-b7ce-fb015a678298",
+      "credentials": {
+        "telegramApi": {
+          "id": "2NSHqEEZBacfmAkG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select ssa.get_commit_status($1, $2) as result;",
+        "options": {
+          "queryReplacement": "={{ [ $('Build Commit Args').first().json.shop_id, $('Build Commit Args').first().json.event_id ] }}"
+        }
+      },
+      "id": "eb5ce423-65d2-4003-8854-7517c221d0ed",
+      "name": "Recheck Commit Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        5296,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "jBG1I6njPLWXZs33",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "un0",
+              "name": "result",
+              "type": "string",
+              "value": "COMMIT_UNCERTAIN"
+            },
+            {
+              "id": "un1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "un2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'Commit status UNKNOWN for ' + $('Build Commit Args').first().json.event_id + '. Do NOT resend this command. The proposal stays COMMIT_VALIDATING and the ledger may or may not contain it.' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f93a1ee8-d305-4637-adff-5eb645adb712",
+      "name": "Build Uncertain Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6640,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extract Update Fields').first().json.chat_id }}",
+        "text": "={{ String($json.message).replace(/&(?!(?:amp|lt|gt|quot|#[0-9]+);)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "5312fbc5-aa40-4561-9ab3-86ee745bc9ca",
+      "name": "Reply Commit Uncertain",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        6864,
+        464
+      ],
+      "webhookId": "a5a504b8-1884-4f59-81ea-c35e0b005555",
+      "credentials": {
+        "telegramApi": {
+          "id": "2NSHqEEZBacfmAkG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cr0",
+              "name": "commit",
+              "type": "object",
+              "value": "={{ (() => { const x = $json.result; if (x && x.status === 'COMMITTED' && x.committed === true) return { outcome: 'CONFIRMED', status: 'ALREADY_COMMITTED', revision: x.revision, event_id: x.event_id }; if (x && x.status === 'NOT_FOUND') return { outcome: 'RETRY' }; return { outcome: 'UNCERTAIN' }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8645e6e4-ee3d-4932-9f4f-fcc7dc296cee",
+      "name": "Classify Recheck",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        5520,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "r0",
+                    "leftValue": "={{ $json.commit.outcome }}",
+                    "rightValue": "CONFIRMED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Confirmed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "r1",
+                    "leftValue": "={{ $json.commit.outcome }}",
+                    "rightValue": "RETRY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Retry"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Uncertain"
+        }
+      },
+      "id": "d3607d3e-43cd-408b-ac45-930366e9667d",
+      "name": "Recheck Outcome?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        5744,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select ssa.commit_event($1::jsonb) as result;",
+        "options": {
+          "queryReplacement": "={{ [ $('Build Commit Args').first().json.commit_args ] }}"
+        }
+      },
+      "id": "37e5fd0d-ab00-4a0e-8010-4092f07c85fe",
+      "name": "Commit Event (retry)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        5968,
+        288
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "jBG1I6njPLWXZs33",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ct0",
+              "name": "commit",
+              "type": "object",
+              "value": "={{ (() => { const x = $json.result; if (!x || typeof x !== 'object' || !x.status) return { outcome: 'UNCERTAIN', reasons: ['NO_RESULT'] }; if ((x.status === 'COMMITTED' || x.status === 'ALREADY_COMMITTED') && x.committed === true) return { outcome: 'CONFIRMED', status: x.status, revision: x.revision, event_id: x.event_id }; if (x.status === 'REJECTED' && x.committed === false) return { outcome: 'REJECTED', reasons: x.reasons ?? ['UNKNOWN'] }; return { outcome: 'UNCERTAIN', reasons: ['UNEXPECTED_RESULT'] }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cad1e95c-bc2b-444c-af4f-346f8aa0ed4c",
+      "name": "Classify Retry",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6192,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "c0",
+                    "leftValue": "={{ $json.commit.outcome }}",
+                    "rightValue": "CONFIRMED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Confirmed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "c1",
+                    "leftValue": "={{ $json.commit.outcome }}",
+                    "rightValue": "REJECTED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rejected"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Uncertain"
+        }
+      },
+      "id": "7d4d0c46-7080-47d4-aa00-00a431ad0474",
+      "name": "Retry Outcome?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        6416,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "rej0",
+              "name": "result",
+              "type": "string",
+              "value": "COMMIT_REJECTED"
+            },
+            {
+              "id": "rej1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "rej2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'COMMIT rejected: ' + (($json.verdict ?? $json.reservation ?? $json.cmd).reasons ?? ['UNKNOWN']).join(', ') + '. Nothing was committed.' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5d886a25-0165-4bd7-86cf-f745d7858952",
+      "name": "Build Rejection1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4624,
+        1824
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "che0",
+              "name": "cmd",
+              "type": "object",
+              "value": "={{ (() => { const t = String($json.text ?? ''); const m = /^(CANCEL|EDIT) ([0-9a-f]{16})( .+)?$/.exec(t); const verb = m ? m[1] : ''; const fmt = !!m && (verb === 'EDIT' ? !!m[3] : !m[3]); const owner = String($json.sender_id ?? '') === '7973198714'; return { format_ok: fmt, owner_ok: owner, verb: verb, token: fmt ? m[2] : '', edit_text: fmt && verb === 'EDIT' ? m[3].trim() : '', reasons: [owner ? '' : 'NOT_OWNER', fmt ? '' : 'BAD_COMMAND_FORMAT'].filter(x => x) }; })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "5ad50164-9f64-4bca-8519-de0597dbd58c",
+      "name": "Check Cancel or Edit Command",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2960,
+        2400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cmd1",
+              "leftValue": "={{ $json.cmd.format_ok && $json.cmd.owner_ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "97a00292-0e7a-40d4-a9d0-53372849d6f5",
+      "name": "Command and Owner OK?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3184,
+        2400
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.cmd.token }}",
+        "dataPropertyName": "token_hash"
+      },
+      "id": "35f88123-bdb3-4016-8bbb-00ef5c510003",
+      "name": "Hash Presented Token1",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        2144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Sj3toFQLHrjZZIja",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "token_hash",
+              "keyValue": "={{ $json.token_hash }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "046c11f4-afb9-40c4-b06b-036ec0101378",
+      "name": "Lookup Proposal by Token1",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3744,
+        2144
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "val0",
+              "name": "verdict",
+              "type": "object",
+              "value": "={{ (() => { const rows = $('Lookup Proposal by Token1').all().map(i => i.json).filter(r => r.event_id); const who = $('Check Cancel or Edit Command').first().json; if (rows.length === 0) return { ok: false, reasons: ['TOKEN_NOT_FOUND_OR_ALREADY_USED'] }; if (rows.length > 1) return { ok: false, reasons: ['DUPLICATE_TOKEN_HASH'] }; const r = rows[0]; const reasons = []; if (r.status !== 'APPROVAL_ISSUED') reasons.push('NOT_INVALIDATABLE:' + r.status); if (String(r.sender_id) !== String(who.sender_id)) reasons.push('SENDER_MISMATCH'); return { ok: reasons.length === 0, reasons: reasons, event_id: r.event_id, new_status: who.verb === 'EDIT' ? 'SUPERSEDED_BY_EDIT' : 'CANCELLED' }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7f165d5f-acb3-42da-aba6-a32c0b00555f",
+      "name": "Validate Invalidation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3968,
+        2144
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "val1",
+              "leftValue": "={{ $json.verdict.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e9d2dc8f-9627-4dd5-bbbd-d7951b50d400",
+      "name": "Can Invalidate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4192,
+        2144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Sj3toFQLHrjZZIja",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $json.verdict.event_id }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "=APPROVAL_ISSUED"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $json.verdict.new_status }}",
+            "token_hash": "",
+            "binding_hash": "",
+            "status_reason": "={{ $(\"Check Cancel or Edit Command\").first().json.verb + \" by owner\" }}",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "token_hash",
+              "displayName": "token_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "binding_hash",
+              "displayName": "binding_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "304acd72-2ac1-41e0-943b-d8f74d6fd9bf",
+      "name": "Invalidate Approval",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4080,
+        2064
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Sj3toFQLHrjZZIja",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Validate Invalidation').first().json.verdict.event_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "0ade3bab-5588-4a53-b5ff-f05d836d98a7",
+      "name": "Re-read Proposal1",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4304,
+        2064
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "don0",
+              "name": "result",
+              "type": "string",
+              "value": "={{ $('Validate Invalidation').first().json.verdict.new_status }}"
+            },
+            {
+              "id": "don1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "don2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ (() => { const r = $input.all().map(i => i.json).filter(x => x.event_id)[0]; const ok = r && r.status === $('Validate Invalidation').first().json.verdict.new_status && !r.token_hash; const verb = $('Check Cancel or Edit Command').first().json.verb; return ok ? (verb === 'EDIT' ? 'Approval invalidated; the proposal is superseded. Re-preparing an edited proposal is not built yet, so send the corrected command again. Nothing was committed.' : 'Proposal cancelled and its approval token invalidated. Nothing was committed.') : 'Invalidation could not be confirmed on re-read. Treat the token as possibly still active until it expires. Nothing was committed.'; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9c6e43d3-6dde-43b4-911d-a77bab1499ce",
+      "name": "Build Invalidated Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4528,
+        2064
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extract Update Fields').first().json.chat_id }}",
+        "text": "={{ String($json.message).replace(/&(?!(?:amp|lt|gt|quot|#[0-9]+);)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "0724292c-1985-49eb-9f4c-4287a305d045",
+      "name": "Reply Invalidated",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4640,
+        512
+      ],
+      "webhookId": "3a5a4ac0-55cc-497e-b797-dfae92072dec",
+      "credentials": {
+        "telegramApi": {
+          "id": "2NSHqEEZBacfmAkG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "rej0",
+              "name": "result",
+              "type": "string",
+              "value": "INVALIDATION_REJECTED"
+            },
+            {
+              "id": "rej1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "rej2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'Not changed: ' + (($json.verdict ?? $json.cmd).reasons ?? ['UNKNOWN']).join(', ') + '.' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4506690e-614d-4fa7-ae3c-ec1c2a285fad",
+      "name": "Build Rejection2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4208,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extract Update Fields').first().json.chat_id }}",
+        "text": "={{ String($json.message).replace(/&(?!(?:amp|lt|gt|quot|#[0-9]+);)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "0237c9d7-cee2-4afc-a1d8-01a889874135",
+      "name": "Reply Invalidation Rejected",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4608,
+        608
+      ],
+      "webhookId": "6eb85d0b-91e6-445e-b1ad-119d925d1b8d",
+      "credentials": {
+        "telegramApi": {
+          "id": "2NSHqEEZBacfmAkG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "iss0",
+              "name": "event_id",
+              "type": "string",
+              "value": "={{ String($json.parsed?.event_id || $json.event_id || '__none__') }}"
+            },
+            {
+              "id": "iss1",
+              "name": "sender_id",
+              "type": "string",
+              "value": "={{ String($json.sender_id ?? '') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b88c7703-d7b5-42d3-8d30-9dea269082a4",
+      "name": "Issue Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1488,
+        1760
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Sj3toFQLHrjZZIja",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $json.event_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "0717e5e5-3a5c-4ce5-b7a9-a972e04ea1ce",
+      "name": "Get Proposal",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1712,
+        1760
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select shop_id, journal_id, revision::int as revision, last_event_id from ssa.ledger_state where shop_id = $1;",
+        "options": {
+          "queryReplacement": "={{ [ ($('Get Proposal').all().map(i => i.json).filter(r => r.event_id)[0] ?? {}).shop_id ?? '__none__' ] }}"
+        }
+      },
+      "id": "341ab949-e1d5-4f2a-b661-d6d50710a138",
+      "name": "Get Ledger State",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1936,
+        1760
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "jBG1I6njPLWXZs33",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "che0",
+              "name": "verdict",
+              "type": "object",
+              "value": "={{ (() => { const rows = $('Get Proposal').all().map(i => i.json).filter(r => r.event_id); const led = $('Get Ledger State').all().map(i => i.json).filter(r => r.journal_id); const who = $('Issue Input').first().json; const reasons = []; if (rows.length === 0) return { ok: false, reasons: ['PROPOSAL_NOT_FOUND'] }; if (rows.length > 1) return { ok: false, reasons: ['DUPLICATE_EVENT_ID'] }; const r = rows[0]; if (who.sender_id !== '7973198714') reasons.push('NOT_OWNER'); if (r.shop_id !== 'SHOP-001') reasons.push('SHOP_MISMATCH'); if (!r.payload_canonical || !r.journal_id) reasons.push('PROPOSAL_INCOMPLETE'); if (String(r.sender_id) !== who.sender_id) reasons.push('SENDER_MISMATCH'); if (r.status !== 'PENDING') reasons.push('NOT_PENDING:' + r.status); if (r.token_hash) reasons.push('TOKEN_ALREADY_ISSUED'); if ($now.toMillis() > r.expires_epoch) reasons.push('EXPIRED'); if (led.length !== 1) reasons.push('LEDGER_STATE_UNAVAILABLE'); else if (led[0].revision !== r.ledger_revision || led[0].journal_id !== r.journal_id || led[0].shop_id !== r.shop_id) reasons.push('STALE_LEDGER_REVISION'); return { ok: reasons.length === 0, reasons: reasons }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9d801b1e-d9cb-4c4c-81dd-8fa777097bee",
+      "name": "Check Issuable",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2160,
+        1760
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "can1",
+              "leftValue": "={{ $json.verdict.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "cab978cd-25d5-4c8a-98a0-e2f9fc48799d",
+      "name": "Can Issue Token?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2384,
+        1760
+      ]
+    },
+    {
+      "parameters": {
+        "action": "generate",
+        "encodingType": "hex",
+        "stringLength": 16
+      },
+      "id": "61c78dc1-e4f0-492e-8f17-49437517cc24",
+      "name": "Generate Token",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        1616
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bui0",
+              "name": "approval_code",
+              "type": "string",
+              "value": "={{ $json.data }}"
+            },
+            {
+              "id": "bui1",
+              "name": "binding_string",
+              "type": "string",
+              "value": "={{ (() => { const r = $('Get Proposal').all().map(i => i.json).filter(x => x.event_id)[0]; return [r.event_id, r.shop_id, r.journal_id, r.event_type, r.ledger_revision, r.expires_epoch, r.sender_id, r.payload_canonical].join('|'); })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d9c5c0aa-2610-4491-9a63-0b09d2ced796",
+      "name": "Build Binding",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2432,
+        1616
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.approval_code }}",
+        "dataPropertyName": "token_hash"
+      },
+      "id": "07750acc-0169-41aa-bf83-dca317928aa6",
+      "name": "Hash Token",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        2656,
+        1616
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.binding_string }}",
+        "dataPropertyName": "binding_hash"
+      },
+      "id": "87e43467-0b8b-48c7-b21a-459f0aa15963",
+      "name": "Hash Binding",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        1616
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Sj3toFQLHrjZZIja",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Issue Input').first().json.event_id }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "=PENDING"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "token_hash": "={{ $json.token_hash }}",
+            "binding_hash": "={{ $json.binding_hash }}",
+            "status": "APPROVAL_ISSUED",
+            "status_reason": "Token issued; awaiting COMMIT",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "token_hash",
+              "displayName": "token_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "binding_hash",
+              "displayName": "binding_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fbd8a96e-bedb-4148-90f4-d4af30ce3791",
+      "name": "Store Token Hash",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3104,
+        1616
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "iss0",
+              "name": "result",
+              "type": "string",
+              "value": "TOKEN_ISSUED"
+            },
+            {
+              "id": "iss1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "iss2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ (() => { const r = $('Get Proposal').all().map(i => i.json).filter(x => x.event_id)[0]; const left = Math.round((r.expires_epoch - $now.toMillis()) / 1000); return 'Approval token issued for ' + r.event_type + '. To approve, send exactly: COMMIT ' + $('Hash Binding').first().json.approval_code + ' - valid for about ' + left + ' more seconds. Only the SHA-256 hash is stored. Ledger writes are not enabled yet.'; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d964d729-6ff3-44cb-bd8d-c9efc7bf287a",
+      "name": "Build Token Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3328,
+        1616
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extract Update Fields').first().json.chat_id }}",
+        "text": "={{ String($json.message).replace(/&(?!(?:amp|lt|gt|quot|#[0-9]+);)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "42135142-4a2f-4f07-ab89-34123ff9718a",
+      "name": "Reply Token",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3504,
+        1904
+      ],
+      "webhookId": "d3c3a694-1cce-4afd-83ca-d0596c73b7a8",
+      "credentials": {
+        "telegramApi": {
+          "id": "2NSHqEEZBacfmAkG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ref0",
+              "name": "result",
+              "type": "string",
+              "value": "TOKEN_REFUSED"
+            },
+            {
+              "id": "ref1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "ref2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'No token issued: ' + $json.verdict.reasons.join(', ') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1fec5a3-96aa-4521-a633-3f16781e494d",
+      "name": "Refuse Token",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2320,
+        1760
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extract Update Fields').first().json.chat_id }}",
+        "text": "={{ String($json.message).replace(/&(?!(?:amp|lt|gt|quot|#[0-9]+);)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "71d47937-b953-463f-9a97-446a4ef05a63",
+      "name": "Reply Token Refused",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2640,
+        1968
+      ],
+      "webhookId": "772043ab-3b2b-407a-8c41-523f0415ed0c",
+      "credentials": {
+        "telegramApi": {
+          "id": "2NSHqEEZBacfmAkG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "I could not read that as a transaction. Supported commands (preview only, nothing is committed): SALE 200 | CREDIT Sunita Deshmukh 500 | REPAY Sunita Deshmukh 200 | STOCKIN Sugar 10 kg | STOCKOUT Sugar 2 kg | ORDER Sunita Deshmukh | Sugar 5 kg",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "3b8f45ac-295f-4832-a6dc-da22870bbbbb",
+      "name": "Reply Unsupported Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1792,
+        592
+      ],
+      "webhookId": "27398fce-a5e8-4f5c-a883-6d6a24b1a445",
+      "credentials": {
+        "telegramApi": {
+          "id": "2NSHqEEZBacfmAkG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "Unauthorized: this bot only accepts commands from the registered shop owner. No action taken.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "8c7fadaf-7d1a-4c4f-9f43-9f5c0ace6f8d",
+      "name": "Reply Unauthorized",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1072,
+        416
+      ],
+      "webhookId": "49e0b985-9a42-478a-b731-dea3cd596a85",
+      "credentials": {
+        "telegramApi": {
+          "id": "2NSHqEEZBacfmAkG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "02fd24e2-b001-4895-80ce-b5b42bca7a63",
+      "name": "Run Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        1024
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"event_type\": \"REPAYMENT\",\n  \"customer_name\": \"Ramesh\",\n  \"amount\": 200,\n  \"currency\": \"INR\"\n}",
+        "options": {}
+      },
+      "id": "de94ff95-cfa7-4076-8f57-a1e529adb5b2",
+      "name": "Test Proposal (edit me)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        1024
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "v1",
+              "name": "errors",
+              "type": "array",
+              "value": "={{ (() => { const j = $json; const e = []; const need = { SALE: ['amount'], CREDIT_SALE: ['customer_name','product_name','quantity','unit','amount'], REPAYMENT: ['customer_name','amount'], STOCK_IN: ['product_name','quantity','unit'], STOCK_OUT: ['product_name','quantity','unit'], ACCEPTED_ORDER: ['customer_name','product_name','quantity','unit'] }; const allowed = ['event_type','customer_name','product_name','amount','quantity','unit','currency']; Object.keys(j).forEach(k => { if (!allowed.includes(k)) e.push('Unknown field: ' + k); }); const req = need[j.event_type]; if (!req) { e.push('Unsupported event_type: ' + j.event_type); return e; } req.forEach(f => { const v = j[f]; if (v === null || v === undefined || v === '') e.push('Missing required field: ' + f); }); ['amount','quantity'].forEach(f => { const v = j[f]; if (v !== null && v !== undefined && v !== '') { if (typeof v !== 'number' || !isFinite(v)) e.push(f + ' must be a number'); else if (v <= 0) e.push(f + ' must be positive'); } }); if (j.unit && !['kg','g','litre','ml','packet','piece','dozen'].includes(j.unit)) e.push('Invalid unit: ' + j.unit); if (j.currency && j.currency !== 'INR') e.push('Currency must be INR'); return e; })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "0add30a9-dcc3-4360-a4d0-b1f42d798b4b",
+      "name": "Validate Proposal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1904,
+        1024
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ok1",
+              "leftValue": "={{ $json.errors.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "45bccdcb-b0fd-413b-b584-c50fa244a031",
+      "name": "Is Proposal Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2128,
+        1024
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "p1",
+              "name": "result",
+              "type": "string",
+              "value": "PREVIEW_OK"
+            },
+            {
+              "id": "p2",
+              "name": "preview_text",
+              "type": "string",
+              "value": "={{ [ 'TRANSACTION PREVIEW (DRAFT - NOTHING SAVED)', '', 'Type: ' + $json.event_type, $json.customer_name ? 'Customer (as typed, not yet verified): ' + $json.customer_name : '', $json.product_name ? 'Product (as typed, not yet verified): ' + $json.product_name : '', $json.amount ? 'Amount: Rs ' + $json.amount : '', $json.quantity ? 'Quantity: ' + $json.quantity + ' ' + $json.unit : '', 'Current balance / stock: NOT AVAILABLE (ledger not built yet)', 'Projected balance / stock: NOT AVAILABLE (ledger not built yet)', '', 'No event ID, token, or expiry yet. This milestone cannot commit anything.' ].filter(s => s !== '').join('\\n') }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "c74109c3-ea64-4fdc-a607-cb05679fbe40",
+      "name": "Build Preview",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2352,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "result",
+              "type": "string",
+              "value": "REJECTED"
+            },
+            {
+              "id": "r2",
+              "name": "preview_text",
+              "type": "string",
+              "value": "={{ 'PROPOSAL REJECTED - NOTHING SAVED\\n' + $json.errors.map(x => '- ' + x).join('\\n') }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "a6067da6-b36f-42bd-84b3-9f6f9647868c",
+      "name": "Build Rejection",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2352,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "83df2500-df10-49db-8cd9-d4115e2bf603",
+      "name": "Called from Telegram Intake",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        2656,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify(Object.fromEntries(Object.entries(Object.assign({}, $json.event_type ? {} : { event_type: 'REPAYMENT', customer_name: 'Sunita Deshmukh', amount: 200 }, $json, { currency: $json.currency ?? 'INR', shop_id: $json.shop_id ?? 'SHOP-001' })).filter(([k, v]) => v !== undefined && v !== null))) }}",
+        "options": {}
+      },
+      "id": "d965eff7-50a2-4f19-aab5-c4a31e07a32d",
+      "name": "Test Input (edit defaults)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2944,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "v1",
+              "name": "errors",
+              "type": "array",
+              "value": "={{ (() => { const j = $json; const e = []; const need = { SALE: ['amount'], CREDIT_SALE: ['customer_name','product_name','quantity','unit','amount'], REPAYMENT: ['customer_name','amount'], STOCK_IN: ['product_name','quantity','unit'], STOCK_OUT: ['product_name','quantity','unit'], ACCEPTED_ORDER: ['customer_name','product_name','quantity','unit'] }; const allowed = ['event_type','customer_name','customer_id','product_name','product_id','amount','quantity','unit','currency','shop_id','source_update_id','source_message_id','chat_id','sender_id','source_text']; Object.keys(j).forEach(k => { if (!allowed.includes(k)) e.push('Unknown field: ' + k); }); if (!j.shop_id) e.push('Missing required field: shop_id'); const req = need[j.event_type]; if (!req) { e.push('Unsupported event_type: ' + j.event_type); return e; } req.forEach(f => { const v = f === 'customer_name' ? (j.customer_name || j.customer_id) : f === 'product_name' ? (j.product_name || j.product_id) : j[f]; if (v === null || v === undefined || v === '') e.push('Missing required field: ' + f); }); ['amount','quantity'].forEach(f => { const v = j[f]; if (v !== null && v !== undefined && v !== '') { if (typeof v !== 'number' || !isFinite(v)) e.push(f + ' must be a number'); else if (v <= 0) e.push(f + ' must be positive'); } }); if (j.unit && !['kg','g','litre','ml','packet','piece','dozen'].includes(j.unit)) e.push('Invalid unit: ' + j.unit); if (j.currency && j.currency !== 'INR') e.push('Currency must be INR'); return e; })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "a0cf671a-0d38-4da2-a11c-f4e586203d23",
+      "name": "Validate Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3168,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fv1",
+              "leftValue": "={{ $json.errors.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6ec0d8f9-ca48-450a-ba4b-d369c58b23d0",
+      "name": "Fields Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3392,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "WTNOxD6hppn5ngWw",
+          "cachedResultName": "ssa_customers"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shop_id",
+              "keyValue": "={{ $('Validate Fields').first().json.shop_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "60d20dd9-7339-4be9-89de-effe33bdecb0",
+      "name": "Lookup Customers",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3456,
+        880
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Nepp8txkrO7IGyMk",
+          "cachedResultName": "ssa_products"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shop_id",
+              "keyValue": "={{ $('Validate Fields').first().json.shop_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "283e1e5f-412a-4ea3-b13d-48282e209e0f",
+      "name": "Lookup Products",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3680,
+        880
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select shop_id, journal_id, revision::int as revision, last_event_id from ssa.ledger_state where shop_id = $1;",
+        "options": {
+          "queryReplacement": "={{ [ $('Validate Fields').first().json.shop_id ] }}"
+        }
+      },
+      "id": "ee86b6d4-2f58-477c-b2cc-3f25d5e1c820",
+      "name": "Lookup Ledger State",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3904,
+        880
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "jBG1I6njPLWXZs33",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "rr1",
+              "name": "resolution",
+              "type": "object",
+              "value": "={{ (() => { const j = $('Validate Fields').first().json; const norm = s => String(s ?? '').trim().toLowerCase().split(' ').filter(x => x).join(' '); const rows = (n, idf) => $(n).all().map(i => i.json).filter(r => r[idf] && r.shop_id === j.shop_id); const customers = rows('Lookup Customers', 'customer_id'); const products = rows('Lookup Products', 'product_id'); const find = (list, idf, id, name) => { if (id) return list.filter(r => r[idf] === id); const q = norm(name); const exact = list.filter(r => norm(r.name) === q); return exact.length ? exact : list.filter(r => norm(r.name).includes(q)); }; const errors = []; const clarify = []; const out = {}; const needC = ['CREDIT_SALE','REPAYMENT','ACCEPTED_ORDER'].includes(j.event_type); const needP = ['CREDIT_SALE','STOCK_IN','STOCK_OUT','ACCEPTED_ORDER'].includes(j.event_type); if (needC) { const m = find(customers, 'customer_id', j.customer_id, j.customer_name); if (m.length === 1) { out.customer_id = m[0].customer_id; out.customer_name = m[0].name; } else if (m.length === 0) errors.push('Unknown customer: ' + (j.customer_id || j.customer_name)); else clarify.push('Which customer did you mean? ' + m.map(r => r.customer_id + ' ' + r.name).join(' | ')); } if (needP) { const m = find(products, 'product_id', j.product_id, j.product_name); if (m.length === 1) { out.product_id = m[0].product_id; out.product_name = m[0].name; out.product_unit = m[0].unit; if (j.unit && j.unit !== m[0].unit) errors.push('Unit mismatch for ' + m[0].name + ': expected ' + m[0].unit + ', got ' + j.unit); } else if (m.length === 0) errors.push('Unknown product: ' + (j.product_id || j.product_name)); else clarify.push('Which product did you mean? ' + m.map(r => r.product_id + ' ' + r.name).join(' | ')); } const ls = $('Lookup Ledger State').all().map(i => i.json).filter(r => r.shop_id === j.shop_id && r.journal_id); if (ls.length !== 1) errors.push('Ledger state missing or not unique for shop ' + j.shop_id); else { out.journal_id = ls[0].journal_id; out.ledger_revision = ls[0].revision; } return Object.assign({ outcome: errors.length ? 'REJECTED' : (clarify.length ? 'CLARIFICATION_NEEDED' : 'OK'), errors: errors, clarify: clarify }, out); })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "320cee55-63e9-4fba-aebb-7d9881968046",
+      "name": "Resolve References",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4128,
+        880
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ro1",
+              "leftValue": "={{ $json.resolution.outcome }}",
+              "rightValue": "OK",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2d7c0048-7d91-40ca-bf2a-dfb6d90de6f1",
+      "name": "References Verified?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4352,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "action": "generate",
+        "encodingType": "hex"
+      },
+      "id": "6345ddcf-e65f-44b0-bd9f-748871d5ec64",
+      "name": "Generate Event ID",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        3232,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1",
+              "name": "event_id",
+              "type": "string",
+              "value": "={{ 'EVT-' + $json.data }}"
+            },
+            {
+              "id": "b2",
+              "name": "proposal_id",
+              "type": "string",
+              "value": "={{ 'PROP-' + $json.data }}"
+            },
+            {
+              "id": "b3",
+              "name": "shop_id",
+              "type": "string",
+              "value": "={{ $('Validate Fields').first().json.shop_id }}"
+            },
+            {
+              "id": "b4",
+              "name": "journal_id",
+              "type": "string",
+              "value": "={{ $('Resolve References').first().json.resolution.journal_id }}"
+            },
+            {
+              "id": "b5",
+              "name": "event_type",
+              "type": "string",
+              "value": "={{ $('Validate Fields').first().json.event_type }}"
+            },
+            {
+              "id": "b6",
+              "name": "ledger_revision",
+              "type": "number",
+              "value": "={{ $('Resolve References').first().json.resolution.ledger_revision }}"
+            },
+            {
+              "id": "b7",
+              "name": "created_iso",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "id": "b8",
+              "name": "expires_at",
+              "type": "string",
+              "value": "={{ $now.plus({ seconds: 90 }).toISO() }}"
+            },
+            {
+              "id": "b9",
+              "name": "expires_epoch",
+              "type": "number",
+              "value": "={{ $now.toMillis() + 90000 }}"
+            },
+            {
+              "id": "b10",
+              "name": "status",
+              "type": "string",
+              "value": "PENDING"
+            },
+            {
+              "id": "b11",
+              "name": "source_update_id",
+              "type": "string",
+              "value": "={{ String($('Validate Fields').first().json.source_update_id ?? '') }}"
+            },
+            {
+              "id": "b12",
+              "name": "source_message_id",
+              "type": "string",
+              "value": "={{ String($('Validate Fields').first().json.source_message_id ?? '') }}"
+            },
+            {
+              "id": "b15",
+              "name": "sender_id",
+              "type": "string",
+              "value": "={{ String($(\"Validate Fields\").first().json.sender_id ?? \"\") }}"
+            },
+            {
+              "id": "b16",
+              "name": "source_text",
+              "type": "string",
+              "value": "={{ String($(\"Validate Fields\").first().json.source_text ?? \"\") }}"
+            },
+            {
+              "id": "b13",
+              "name": "chat_id",
+              "type": "string",
+              "value": "={{ String($('Validate Fields').first().json.chat_id ?? '') }}"
+            },
+            {
+              "id": "b14",
+              "name": "payload_canonical",
+              "type": "string",
+              "value": "={{ (() => { const j = $('Validate Fields').first().json; const r = $('Resolve References').first().json.resolution; const p = { event_type: j.event_type, shop_id: j.shop_id, customer_id: r.customer_id, product_id: r.product_id, amount: j.amount, quantity: j.quantity, unit: j.unit, currency: j.currency ?? 'INR' }; const o = {}; Object.keys(p).sort().forEach(k => { if (p[k] !== undefined && p[k] !== null && p[k] !== '') o[k] = p[k]; }); return JSON.stringify(o); })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f691bae9-7e9d-4353-8835-e04f0207ecdd",
+      "name": "Build Proposal Record",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3456,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.payload_canonical }}",
+        "dataPropertyName": "payload_hash"
+      },
+      "id": "34f6e974-b946-458b-80ea-2d185a9014e3",
+      "name": "Hash Payload",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        3680,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Sj3toFQLHrjZZIja",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "proposal_id": "={{ $json.proposal_id }}",
+            "event_id": "={{ $json.event_id }}",
+            "shop_id": "={{ $json.shop_id }}",
+            "journal_id": "={{ $json.journal_id }}",
+            "event_type": "={{ $json.event_type }}",
+            "payload_canonical": "={{ $json.payload_canonical }}",
+            "payload_hash": "={{ $json.payload_hash }}",
+            "ledger_revision": "={{ $json.ledger_revision }}",
+            "expires_at": "={{ $json.expires_at }}",
+            "expires_epoch": "={{ $json.expires_epoch }}",
+            "status": "={{ $json.status }}",
+            "source_update_id": "={{ $json.source_update_id }}",
+            "source_message_id": "={{ $json.source_message_id }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "created_iso": "={{ $json.created_iso }}",
+            "sender_id": "={{ $json.sender_id }}",
+            "source_text": "={{ $json.source_text }}"
+          },
+          "schema": [
+            {
+              "id": "proposal_id",
+              "displayName": "proposal_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "shop_id",
+              "displayName": "shop_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "journal_id",
+              "displayName": "journal_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "event_type",
+              "displayName": "event_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload_canonical",
+              "displayName": "payload_canonical",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload_hash",
+              "displayName": "payload_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ledger_revision",
+              "displayName": "ledger_revision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "expires_at",
+              "displayName": "expires_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "expires_epoch",
+              "displayName": "expires_epoch",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_update_id",
+              "displayName": "source_update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_message_id",
+              "displayName": "source_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_iso",
+              "displayName": "created_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sender_id",
+              "displayName": "sender_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_text",
+              "displayName": "source_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a94ab4d6-5bc7-4319-accd-bb5d58337d34",
+      "name": "Store Pending Proposal",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3904,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "result",
+              "type": "string",
+              "value": "PENDING_PROPOSAL_STORED"
+            },
+            {
+              "id": "c2",
+              "name": "pending_proposal_created",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "id": "c3",
+              "name": "event_id",
+              "type": "string",
+              "value": "={{ $('Hash Payload').first().json.event_id }}"
+            },
+            {
+              "id": "c4",
+              "name": "expires_at",
+              "type": "string",
+              "value": "={{ $('Hash Payload').first().json.expires_at }}"
+            },
+            {
+              "id": "c5",
+              "name": "message",
+              "type": "string",
+              "value": "={{ (() => { const j = $('Hash Payload').first().json; const v = $('Validate Fields').first().json; const r = $('Resolve References').first().json.resolution; return ['PREVIEW - PENDING PROPOSAL STORED (NOT COMMITTED)', 'Type: ' + j.event_type, r.customer_id ? 'Customer: ' + r.customer_name + ' (' + r.customer_id + ')' : '', r.product_id ? 'Product: ' + r.product_name + ' (' + r.product_id + ')' : '', v.amount ? 'Amount: Rs ' + v.amount : '', v.quantity ? 'Quantity: ' + v.quantity + ' ' + v.unit : '', 'Ledger revision seen: ' + j.ledger_revision, 'Event ID: ' + j.event_id, 'Expires: ' + j.expires_at + ' (90 seconds)', '', 'The event ID is an identifier only, NOT an approval token. No COMMIT exists yet. Ledger and Sheets untouched.'].filter(s => s !== '').join('\\n'); })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5caf0898-cba1-415f-bd62-c0939fe7da80",
+      "name": "Confirm Stored (Preview)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4128,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bf1",
+              "name": "result",
+              "type": "string",
+              "value": "={{ $json.resolution ? $json.resolution.outcome : 'REJECTED_INVALID_FIELDS' }}"
+            },
+            {
+              "id": "bf2",
+              "name": "pending_proposal_created",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "bf3",
+              "name": "message",
+              "type": "string",
+              "value": "={{ (() => { const r = $json.resolution; const clar = r && r.outcome === 'CLARIFICATION_NEEDED'; const lines = r ? r.clarify.concat(r.errors) : $json.errors; return (clar ? 'CLARIFICATION NEEDED - NOTHING SAVED\\n' : 'PROPOSAL REJECTED - NOTHING SAVED\\n') + lines.map(x => '- ' + x).join('\\n'); })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e76a749b-a00a-474e-a244-5940312bceb8",
+      "name": "Build Refusal or Clarification",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4112,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Sj3toFQLHrjZZIja",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Validate Approval').first().json.verdict.event_id }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "=COMMIT_VALIDATING"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "VALIDATED_NOT_COMMITTED",
+            "status_reason": "Dry run: ledger write path not implemented",
+            "updated_iso": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_reason",
+              "displayName": "status_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_iso",
+              "displayName": "updated_iso",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "138b521e-0b81-4b86-9b22-8ee479d221d0",
+      "name": "Mark VALIDATED_NOT_COMMITTED",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4560,
+        1696
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "okR0",
+              "name": "result",
+              "type": "string",
+              "value": "COMMIT_VALIDATED_NOT_COMMITTED"
+            },
+            {
+              "id": "okR1",
+              "name": "committed",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "id": "okR2",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'COMMIT validated for ' + $('Validate Approval').first().json.verdict.event_id + ' but NOT committed: the ledger write path is not implemented yet. No balance, stock or journal changed. The token is consumed.' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8fb95cd6-1e59-4e10-b420-5de731b2d346",
+      "name": "Build Validated Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4784,
+        1696
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ci1",
+              "name": "event_id",
+              "type": "string",
+              "value": "={{ $json.event_id ?? 'EVT-3d7834ad-afb8-498d-b967-c861369464d3' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e20ee162-25d2-4bdf-b2b5-8dae86b189e3",
+      "name": "Check Input (paste event_id)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2944,
+        1216
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Sj3toFQLHrjZZIja",
+          "cachedResultName": "ssa_pending_proposals"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "keyValue": "={{ $('Check Input (paste event_id)').first().json.event_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "75ce1c3f-faa8-4528-b4db-a8e37cde5bb7",
+      "name": "Get Pending Proposal",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3168,
+        1216
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ee1",
+              "name": "check",
+              "type": "object",
+              "value": "={{ (() => { const rows = $input.all().map(i => i.json).filter(r => r.event_id); if (rows.length === 0) return { state: 'NOT_FOUND', usable: false }; if (rows.length > 1) return { state: 'DUPLICATE_EVENT_ID', usable: false }; const r = rows[0]; const now = $now.toMillis(); if (r.status !== 'PENDING') return { state: 'NOT_PENDING', status: r.status, usable: false }; if (now > r.expires_epoch) return { state: 'EXPIRED', seconds_overdue: Math.round((now - r.expires_epoch) / 1000), usable: false }; return { state: 'PENDING_VALID', seconds_left: Math.round((r.expires_epoch - now) / 1000), usable: true }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "70559b00-54d3-4683-8f99-3d5747003b7c",
+      "name": "Evaluate Expiry",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3392,
+        1216
+      ],
+      "executeOnce": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Update Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Update Fields": {
+      "main": [
+        [
+          {
+            "node": "Is Authorized Owner?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Authorized Owner?": {
+      "main": [
+        [
+          {
+            "node": "Parse Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Command": {
+      "main": [
+        [
+          {
+            "node": "Route Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Command": {
+      "main": [
+        [
+          {
+            "node": "Build Prepare Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply Read-Only Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Command and Owner",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Cancel or Edit Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Issue Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply Unsupported Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Prepare Input": {
+      "main": [
+        [
+          {
+            "node": "Lookup Processed Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Processed Update": {
+      "main": [
+        [
+          {
+            "node": "Decide Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Process This Update?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process This Update?": {
+      "main": [
+        [
+          {
+            "node": "Claim Update (RECEIVED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim Update (RECEIVED)": {
+      "main": [
+        [
+          {
+            "node": "Restore Prepare Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Prepare Input": {
+      "main": [
+        [
+          {
+            "node": "Prepare Proposal (SSA-02B)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Proposal (SSA-02B)": {
+      "main": [
+        [
+          {
+            "node": "Reply Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Update FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply Preview": {
+      "main": [
+        [
+          {
+            "node": "Mark Update PROCESSED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Update FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Update FAILED": {
+      "main": [
+        [
+          {
+            "node": "Reply Preparation Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Command and Owner": {
+      "main": [
+        [
+          {
+            "node": "Command and Owner OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Command and Owner OK?": {
+      "main": [
+        [
+          {
+            "node": "Hash Presented Token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Presented Token": {
+      "main": [
+        [
+          {
+            "node": "Lookup Proposal by Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Proposal by Token": {
+      "main": [
+        [
+          {
+            "node": "Lookup Ledger State1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Ledger State1": {
+      "main": [
+        [
+          {
+            "node": "Rebuild Binding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rebuild Binding": {
+      "main": [
+        [
+          {
+            "node": "Hash Rebuilt Binding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Rebuilt Binding": {
+      "main": [
+        [
+          {
+            "node": "Validate Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Approval": {
+      "main": [
+        [
+          {
+            "node": "Approval Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval Valid?": {
+      "main": [
+        [
+          {
+            "node": "Reserve Approval (consume token)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reserve Approval (consume token)": {
+      "main": [
+        [
+          {
+            "node": "Re-read Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-read Proposal": {
+      "main": [
+        [
+          {
+            "node": "Confirm Reservation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm Reservation": {
+      "main": [
+        [
+          {
+            "node": "Reservation Confirmed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservation Confirmed?": {
+      "main": [
+        [
+          {
+            "node": "Build Commit Args",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Commit Args": {
+      "main": [
+        [
+          {
+            "node": "Commit Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Commit Event": {
+      "main": [
+        [
+          {
+            "node": "Classify Commit Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Recheck Commit Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Commit Result": {
+      "main": [
+        [
+          {
+            "node": "Commit Outcome?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Commit Outcome?": {
+      "main": [
+        [
+          {
+            "node": "Mark COMMITTED (cache)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark COMMIT_REJECTED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Recheck Commit Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark COMMITTED (cache)": {
+      "main": [
+        [
+          {
+            "node": "Build Committed Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Committed Reply": {
+      "main": [
+        [
+          {
+            "node": "Reply Commit Validated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark COMMIT_REJECTED": {
+      "main": [
+        [
+          {
+            "node": "Build Commit Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Commit Rejection": {
+      "main": [
+        [
+          {
+            "node": "Reply Commit Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recheck Commit Status": {
+      "main": [
+        [
+          {
+            "node": "Classify Recheck",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Uncertain Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Uncertain Reply": {
+      "main": [
+        [
+          {
+            "node": "Reply Commit Uncertain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Recheck": {
+      "main": [
+        [
+          {
+            "node": "Recheck Outcome?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recheck Outcome?": {
+      "main": [
+        [
+          {
+            "node": "Mark COMMITTED (cache)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Commit Event (retry)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Uncertain Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Commit Event (retry)": {
+      "main": [
+        [
+          {
+            "node": "Classify Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Uncertain Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Retry": {
+      "main": [
+        [
+          {
+            "node": "Retry Outcome?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retry Outcome?": {
+      "main": [
+        [
+          {
+            "node": "Mark COMMITTED (cache)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark COMMIT_REJECTED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Uncertain Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Rejection1": {
+      "main": [
+        [
+          {
+            "node": "Reply Commit Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Cancel or Edit Command": {
+      "main": [
+        [
+          {
+            "node": "Command and Owner OK?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Command and Owner OK?1": {
+      "main": [
+        [
+          {
+            "node": "Hash Presented Token1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Presented Token1": {
+      "main": [
+        [
+          {
+            "node": "Lookup Proposal by Token1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Proposal by Token1": {
+      "main": [
+        [
+          {
+            "node": "Validate Invalidation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Invalidation": {
+      "main": [
+        [
+          {
+            "node": "Can Invalidate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Can Invalidate?": {
+      "main": [
+        [
+          {
+            "node": "Invalidate Approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invalidate Approval": {
+      "main": [
+        [
+          {
+            "node": "Re-read Proposal1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-read Proposal1": {
+      "main": [
+        [
+          {
+            "node": "Build Invalidated Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Invalidated Reply": {
+      "main": [
+        [
+          {
+            "node": "Reply Invalidated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Rejection2": {
+      "main": [
+        [
+          {
+            "node": "Reply Invalidation Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Issue Input": {
+      "main": [
+        [
+          {
+            "node": "Get Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Proposal": {
+      "main": [
+        [
+          {
+            "node": "Get Ledger State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Ledger State": {
+      "main": [
+        [
+          {
+            "node": "Check Issuable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Issuable": {
+      "main": [
+        [
+          {
+            "node": "Can Issue Token?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Can Issue Token?": {
+      "main": [
+        [
+          {
+            "node": "Generate Token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuse Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Token": {
+      "main": [
+        [
+          {
+            "node": "Build Binding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Binding": {
+      "main": [
+        [
+          {
+            "node": "Hash Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Token": {
+      "main": [
+        [
+          {
+            "node": "Hash Binding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Binding": {
+      "main": [
+        [
+          {
+            "node": "Store Token Hash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Token Hash": {
+      "main": [
+        [
+          {
+            "node": "Build Token Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Token Reply": {
+      "main": [
+        [
+          {
+            "node": "Reply Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refuse Token": {
+      "main": [
+        [
+          {
+            "node": "Reply Token Refused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Test": {
+      "main": [
+        [
+          {
+            "node": "Test Proposal (edit me)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Proposal (edit me)": {
+      "main": [
+        [
+          {
+            "node": "Validate Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Proposal": {
+      "main": [
+        [
+          {
+            "node": "Is Proposal Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Proposal Valid?": {
+      "main": [
+        [
+          {
+            "node": "Build Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called from Telegram Intake": {
+      "main": [
+        [
+          {
+            "node": "Test Input (edit defaults)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Input (edit defaults)": {
+      "main": [
+        [
+          {
+            "node": "Validate Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Fields": {
+      "main": [
+        [
+          {
+            "node": "Fields Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fields Valid?": {
+      "main": [
+        [
+          {
+            "node": "Lookup Customers",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Refusal or Clarification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Customers": {
+      "main": [
+        [
+          {
+            "node": "Lookup Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Products": {
+      "main": [
+        [
+          {
+            "node": "Lookup Ledger State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Ledger State": {
+      "main": [
+        [
+          {
+            "node": "Resolve References",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve References": {
+      "main": [
+        [
+          {
+            "node": "References Verified?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "References Verified?": {
+      "main": [
+        [
+          {
+            "node": "Generate Event ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Refusal or Clarification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Event ID": {
+      "main": [
+        [
+          {
+            "node": "Build Proposal Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Proposal Record": {
+      "main": [
+        [
+          {
+            "node": "Hash Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Payload": {
+      "main": [
+        [
+          {
+            "node": "Store Pending Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Pending Proposal": {
+      "main": [
+        [
+          {
+            "node": "Confirm Stored (Preview)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark VALIDATED_NOT_COMMITTED": {
+      "main": [
+        [
+          {
+            "node": "Build Validated Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Input (paste event_id)": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Proposal": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Expiry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "5fd93348-78ac-4a56-a8cc-3d7a83a0beb8",
+  "meta": {
+    "instanceId": "4f5caa108d1674e5d7d1c0e7bb57e89234e369248c800062611a1ba13504c6bc"
+  },
+  "nodeGroups": [
+    {
+      "id": "c333f765-2461-4089-8473-4217136b6eb2",
+      "name": "Verify owner",
+      "nodeIds": [
+        "5c9d7097-38cf-48bb-a9d7-faf0a416f305",
+        "2e2a4646-0734-4a52-9bc4-16cec7dfc7b3"
+      ],
+      "description": "Reads Telegram update, message, sender and chat IDs and checks the sender is the registered shop owner"
+    },
+    {
+      "id": "c7c93e76-5dda-48a4-a7c5-9fa27bd5214d",
+      "name": "Interpret command",
+      "nodeIds": [
+        "2eef7fe7-db29-47f8-ac9e-5d138f792a1e",
+        "1bd32cd5-4978-450a-8a7f-1cd07af201ad"
+      ],
+      "description": "Reads the owner text as a fixed command and separates transactions, read-only queries and unsupported messages"
+    },
+    {
+      "id": "bd46264b-5596-41e9-8098-78443048b61e",
+      "name": "Prepare once and preview",
+      "nodeIds": [
+        "b7a36199-8bf1-4a2b-bb88-73eb3b68e53a",
+        "aa00d792-979a-4937-95b8-f86b06caab3c",
+        "b62101d4-c798-4146-83f3-2432dc2a401a",
+        "6f59cdd8-3c91-4b82-891d-4189ae926f8e",
+        "c3445585-85a4-4286-b337-fbc78f716171",
+        "46cabb62-7ba4-4873-a60b-7f6ae8c594a6",
+        "272414e8-17b3-41a6-bf76-ce46a1839b16",
+        "b33b31cc-d0c7-40dd-ac16-94cf2db7126d",
+        "8cb8728a-23cc-4ab7-b678-d11b91874655",
+        "9f308d6b-f030-44f1-bba7-61caa7134861",
+        "e0198bd4-375f-4dd8-8308-65c9d48fcf64"
+      ],
+      "description": "Skips repeated Telegram updates, records each attempt, stores the pending proposal and replies with the preview; nothing is committed"
+    },
+    {
+      "id": "940b8c46-b6d6-4bd7-98c9-4b86d2fc4cb7",
+      "name": "Check proposal fields",
+      "nodeIds": [
+        "d965eff7-50a2-4f19-aab5-c4a31e07a32d",
+        "a0cf671a-0d38-4da2-a11c-f4e586203d23",
+        "6ec0d8f9-ca48-450a-ba4b-d369c58b23d0"
+      ],
+      "description": "Takes the test input and checks type, required fields and amounts; invalid proposals stop here with reasons"
+    },
+    {
+      "id": "936f699d-e4ab-403d-ab2c-c9733af98da6",
+      "name": "Verify shop records",
+      "nodeIds": [
+        "60d20dd9-7339-4be9-89de-effe33bdecb0",
+        "283e1e5f-412a-4ea3-b13d-48282e209e0f",
+        "ee86b6d4-2f58-477c-b2cc-3f25d5e1c820",
+        "320cee55-63e9-4fba-aebb-7d9881968046",
+        "2d7c0048-7d91-40ca-bf2a-dfb6d90de6f1"
+      ],
+      "description": "Matches customer and product against this shop reference data; unknown or ambiguous names stop with a message"
+    },
+    {
+      "id": "63bf0484-187b-44a0-ba2c-07d2cd2e3fe0",
+      "name": "Store pending proposal",
+      "nodeIds": [
+        "6345ddcf-e65f-44b0-bd9f-748871d5ec64",
+        "f691bae9-7e9d-4353-8835-e04f0207ecdd",
+        "34f6e974-b946-458b-80ea-2d185a9014e3",
+        "a94ab4d6-5bc7-4319-accd-bb5d58337d34",
+        "5caf0898-cba1-415f-bd62-c0939fe7da80"
+      ],
+      "description": "Saves the verified proposal as PENDING with an event ID and 90-second expiry; nothing is committed"
+    },
+    {
+      "id": "31dcd59c-6175-47bd-99bc-5701cafe49fc",
+      "name": "Check proposal expiry",
+      "nodeIds": [
+        "e20ee162-25d2-4bdf-b2b5-8dae86b189e3",
+        "75ce1c3f-faa8-4528-b4db-a8e37cde5bb7",
+        "70559b00-54d3-4683-8f99-3d5747003b7c"
+      ],
+      "description": "Looks up a stored proposal by event ID and reports whether it is still valid or expired; read-only"
+    },
+    {
+      "id": "0daa07d2-dfc2-439a-984b-5ae067a2e780",
+      "name": "Check proposal can be approved",
+      "nodeIds": [
+        "b88c7703-d7b5-42d3-8d30-9dea269082a4",
+        "0717e5e5-3a5c-4ce5-b7a9-a972e04ea1ce",
+        "341ab949-e1d5-4f2a-b661-d6d50710a138",
+        "9d801b1e-d9cb-4c4c-81dd-8fa777097bee",
+        "cab978cd-25d5-4c8a-98a0-e2f9fc48799d"
+      ],
+      "description": "Re-reads the stored proposal and ledger revision; only an unexpired PENDING proposal for the owner can get a token"
+    },
+    {
+      "id": "581f781d-1797-4cb3-b155-3fb80b385e74",
+      "name": "Issue and store token",
+      "nodeIds": [
+        "61c78dc1-e4f0-492e-8f17-49437517cc24",
+        "d9c5c0aa-2610-4491-9a63-0b09d2ced796",
+        "07750acc-0169-41aa-bf83-dca317928aa6",
+        "87e43467-0b8b-48c7-b21a-459f0aa15963",
+        "fbd8a96e-bedb-4148-90f4-d4af30ce3791",
+        "d964d729-6ff3-44cb-bd8d-c9efc7bf287a",
+        "42135142-4a2f-4f07-ab89-34123ff9718a"
+      ],
+      "description": "Creates a random token, stores only its hash plus a binding hash of the proposal details; nothing is committed"
+    },
+    {
+      "id": "ae25c1e7-8404-4465-8812-b175f0102421",
+      "name": "Check command and owner",
+      "nodeIds": [
+        "b28a0789-1051-48f5-9ac1-c2bb08737099",
+        "01b33b03-7410-46c7-a27d-cb8599808f43"
+      ],
+      "description": "Accepts only the exact text COMMIT plus a 16-character token from the registered owner; anything else is rejected"
+    },
+    {
+      "id": "d333f3a9-2df6-4c54-bb2e-c2d88c44a6e3",
+      "name": "Validate stored approval",
+      "nodeIds": [
+        "f02dd9a9-499b-4935-9725-3b6a9393b647",
+        "78191a21-7ad9-4643-9a13-ae57cea3d5bd",
+        "2bf54e7d-6538-4b38-a4d7-f2050436a414",
+        "2fc27200-dcf3-4674-be83-01bea74712df",
+        "4c2f9f80-997e-4315-8f05-291e14ce9658",
+        "99965243-a4f6-40b7-b8fa-b5f741b58ebe",
+        "52c0c0d7-675d-46b8-a0e0-1a24e69599a7"
+      ],
+      "description": "Finds the proposal by token hash and checks status, expiry, sender, ledger revision and the binding hash"
+    },
+    {
+      "id": "97aefb4e-c9b2-4a41-985f-159f77592a72",
+      "name": "Reserve and re-check",
+      "nodeIds": [
+        "92fb0d4b-3f40-462f-aa6c-4f8514280113",
+        "c961c91f-fa5c-45a6-a82f-b2d61120c870",
+        "982b2692-b891-43be-8c8b-67f0eb9f5fe4",
+        "fd0835a1-715d-4915-868f-5225e92516ea"
+      ],
+      "description": "Consumes the token, then re-reads the proposal to confirm the reservation; this narrows but cannot remove races"
+    },
+    {
+      "id": "39dd3ee0-3ecc-4185-a418-884b6926b3c3",
+      "name": "Check command and owner 1",
+      "nodeIds": [
+        "5ad50164-9f64-4bca-8519-de0597dbd58c",
+        "97a00292-0e7a-40d4-a9d0-53372849d6f5"
+      ],
+      "description": "Accepts only CANCEL token, or EDIT token plus new text, from the registered owner"
+    },
+    {
+      "id": "d3023835-cbf8-4d16-93ee-557687448e40",
+      "name": "Find and validate approval",
+      "nodeIds": [
+        "35f88123-bdb3-4016-8bbb-00ef5c510003",
+        "046c11f4-afb9-40c4-b06b-036ec0101378",
+        "7f165d5f-acb3-42da-aba6-a32c0b00555f",
+        "e9d2dc8f-9627-4dd5-bbbd-d7951b50d400"
+      ],
+      "description": "Finds the proposal by token hash and confirms it still has an active approval for this sender"
+    },
+    {
+      "id": "453fbbb1-2fbc-4d0f-becf-6a6079fdf1a9",
+      "name": "Invalidate approval",
+      "nodeIds": [
+        "304acd72-2ac1-41e0-943b-d8f74d6fd9bf",
+        "0ade3bab-5588-4a53-b5ff-f05d836d98a7",
+        "9c6e43d3-6dde-43b4-911d-a77bab1499ce",
+        "0724292c-1985-49eb-9f4c-4287a305d045"
+      ],
+      "description": "Consumes the token and marks the proposal CANCELLED or SUPERSEDED, then re-reads to confirm; no ledger access"
+    }
+  ],
+  "id": "lei9FvhEG7eerW76",
+  "tags": []
+}

@@ -26,15 +26,15 @@ Shop Assistant AI is a Python-based Telegram bot concept for small shops. It let
 ## Project Screenshots
 
 ### Telegram bot interface
-![Telegram bot home screen with supported commands and quick actions](screenshots/telegram-home.png)
+![Telegram bot home screen with supported commands and quick actions](telegram-home.png)
 
 ### Customer payment receipt
-![Example customer payment receipt showing amount, method, and outstanding balance](screenshots/payment-receipt.png)
+![Example customer payment receipt showing amount, method, and outstanding balance](payment-receipt.png)
 
 ### Customer khata and outstanding credit
-![Example list of outstanding customer balances](screenshots/outstanding-balances.png)
+![Example list of outstanding customer balances](outstanding-balances.png)
 
-![Example total outstanding customer credit summary](screenshots/outstanding-credit-summary.png)
+![Example total outstanding customer credit summary](outstanding-credit-summary.png)
 
 ## Why Shop Assistant AI?
 
@@ -62,25 +62,25 @@ The screenshots below show the Telegram bot interface and example bookkeeping re
 
 ### Telegram bot home and quick actions
 
-![Shop Assistant AI Telegram home screen](screenshots/telegram-home.png)
+![Shop Assistant AI Telegram home screen](telegram-home.png)
 
 The home screen introduces the supported workflows, including sales, stock and inventory, bulk stock entry, customer khata, customer payments, reports, and quick-action buttons.
 
 ### Customer payment confirmation
 
-![Customer payment receipt](screenshots/payment-receipt.png)
+![Customer payment receipt](payment-receipt.png)
 
 Example receipt for a payment from Ramesh showing the amount received, payment method, remaining outstanding balance, and transaction date.
 
 ### Outstanding customer balances
 
-![Outstanding customer balances](screenshots/outstanding-balances.png)
+![Outstanding customer balances](outstanding-balances.png)
 
 Example list of customer balances and the total outstanding amount. The bot labels these balances as unpaid customer credit, not cash received.
 
 ### Outstanding credit summary
 
-![Outstanding customer credit summary](screenshots/outstanding-credit-summary.png)
+![Outstanding customer credit summary](outstanding-credit-summary.png)
 
 Example summary showing total outstanding customer credit and clarifying that the amount is unpaid credit rather than cash received.
 
